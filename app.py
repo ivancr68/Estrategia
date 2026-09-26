@@ -315,5 +315,6 @@ if __name__ == "__main__":
     print("   Panel disponible en: http://localhost:5050")
     print("=" * 55 + "\n")
 
+    port = int(os.getenv("PORT", 5050))
     dispatcher.telegram_bot.start_listening()
-    app.run(host="0.0.0.0", port=5050, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)

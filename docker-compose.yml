@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  trading-terminal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nyse-quant-terminal
+    restart: unless-stopped
+    ports:
+      - "5050:5050"
+    environment:
+      - PORT=5050
+      - TELEGRAM_ENABLED=True
+    env_file:
+      - .env
