@@ -33,17 +33,43 @@ class InteractiveBrokers(BaseBroker):
             return False
 
     def is_connected(self) -> bool:
-        # 1. Probar Socket TWS en localhost (puerto 7497 o 7496)
         import socket
-        for p in [7497, 7496]:
-            try:
-                s = socket.create_connection(("127.0.0.1", p), timeout=0.6)
-                s.close()
-                self.connected = True
-                self.status_detail = f"En Línea (TWS Socket API :{p}) ✅"
-                return True
-            except Exception:
-                pass
+        import os
+
+        # Determinar hosts y puertos a escanear (soporta localhost y contenedor ib-gateway en Easypanel)
+        host_env = os.getenv("IBKR_HOST", "").strip()
+        custom_port_env = os.getenv("IBKR_PORT", "").strip()
+
+        target_hosts = ["127.0.0.1"]
+        if host_env:
+            target_hosts.insert(0, host_env)
+
+        if self.gateway_url:
+            clean_url = self.gateway_url.replace("http://", "").replace("https://", "").split("/")[0]
+            if clean_url and clean_url not in target_hosts:
+                if ":" in clean_url:
+                    h, _ = clean_url.split(":", 1)
+                    if h:
+                        target_hosts.insert(0, h)
+                else:
+                    target_hosts.insert(0, clean_url)
+
+        ports_to_try = [7497, 7496, 4002, 4001]
+        if custom_port_env and custom_port_env.isdigit():
+            ports_to_try.insert(0, int(custom_port_env))
+
+        # 1. Probar Socket TWS / IB Gateway en los hosts y puertos objetivo
+        for h in target_hosts:
+            for p in ports_to_try:
+                try:
+                    s = socket.create_connection((h, p), timeout=0.6)
+                    s.close()
+                    self.connected = True
+                    host_label = "Local" if h in ["127.0.0.1", "localhost"] else f"Nube ({h})"
+                    self.status_detail = f"En Línea (IB Gateway {host_label} :{p}) ✅"
+                    return True
+                except Exception:
+                    pass
 
         # 2. Probar si el proceso tws.exe está abierto localmente en Windows
         if self._is_tws_process_running():
