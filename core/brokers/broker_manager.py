@@ -14,37 +14,92 @@ import config
 
 class BrokerManager:
     """
-    Enrutador multibróker para ejecución, consulta de saldos y configuración de credenciales.
+    Enrutador multibróker institucional para ejecución simultánea,
+    consulta combinada de saldos y configuración de credenciales.
+    Soporta modo Multi-Bróker Concurrente (todos activos a la vez).
     """
 
-    def __init__(self, default_broker: str = "ALPACA"):
+    def __init__(self, default_broker: str = "ALL"):
+        import os
         self.brokers: Dict[str, BaseBroker] = {
             "ALPACA": AlpacaBroker(
-                api_key=getattr(config, "ALPACA_API_KEY", "PKJ4MJOYYRRLM33DWVNL2CFUT5"),
-                secret_key=getattr(config, "ALPACA_SECRET_KEY", "3vyygErLE3Q3itKceGobFKa2qCy4sxdvFVEqZtSbyZXS"),
-                paper_mode=True
+                api_key=os.getenv("ALPACA_API_KEY", getattr(config, "ALPACA_API_KEY", "PKJ4MJOYYRRLM33DWVNL2CFUT5")),
+                secret_key=os.getenv("ALPACA_SECRET_KEY", getattr(config, "ALPACA_SECRET_KEY", "3vyygErLE3Q3itKceGobFKa2qCy4sxdvFVEqZtSbyZXS")),
+                paper_mode=str(os.getenv("ALPACA_PAPER_MODE", getattr(config, "ALPACA_PAPER_MODE", True))).lower() == "true"
             ),
             "IBKR": InteractiveBrokers(
-                gateway_url=getattr(config, "IBKR_GATEWAY_URL", "https://localhost:5000/v1/api"),
-                account_id=getattr(config, "IBKR_ACCOUNT_ID", "DU1234567"),
+                gateway_url=os.getenv("IBKR_GATEWAY_URL", getattr(config, "IBKR_GATEWAY_URL", "https://localhost:5000/v1/api")),
+                account_id=os.getenv("IBKR_ACCOUNT_ID", getattr(config, "IBKR_ACCOUNT_ID", "DUR214667")),
                 paper_mode=True
             ),
             "TRADIER": TradierBroker(
-                access_token=getattr(config, "TRADIER_ACCESS_TOKEN", "DEMO_TRADIER_TOKEN"),
-                account_id=getattr(config, "TRADIER_ACCOUNT_ID", "VA12345678"),
+                access_token=os.getenv("TRADIER_ACCESS_TOKEN", getattr(config, "TRADIER_ACCESS_TOKEN", "DEMO_TRADIER_TOKEN")),
+                account_id=os.getenv("TRADIER_ACCOUNT_ID", getattr(config, "TRADIER_ACCOUNT_ID", "VA12345678")),
                 paper_mode=True
             )
         }
-        self.active_broker_name = default_broker.upper() if default_broker.upper() in self.brokers else "ALPACA"
+        # Conjunto de brokers activos concurrentemente (Alpaca + IBKR + Tradier Sandbox)
+        self.active_brokers_set: set = {"ALPACA", "IBKR", "TRADIER"}
+
+    def _is_configured(self, b_id: str) -> bool:
+        if b_id == "ALPACA":
+            return bool(getattr(self.brokers["ALPACA"], "api_key", "") not in ["", "TU_ALPACA_API_KEY"])
+        if b_id == "IBKR":
+            return bool(getattr(self.brokers["IBKR"], "account_id", "") not in ["", "DU1234567"])
+        if b_id == "TRADIER":
+            token = getattr(self.brokers["TRADIER"], "access_token", "")
+            return bool(token and token not in ["", "DEMO_TRADIER_TOKEN", "DEMO_TOKEN_123", "TU_TRADIER_TOKEN"])
+        return False
 
     @property
     def active_broker(self) -> BaseBroker:
-        return self.brokers[self.active_broker_name]
+        """Retorna un broker representativo de los activos (preferencia IBKR > ALPACA > TRADIER)."""
+        for name in ["IBKR", "ALPACA", "TRADIER"]:
+            if name in self.active_brokers_set and name in self.brokers:
+                return self.brokers[name]
+        return self.brokers["ALPACA"]
+
+    @property
+    def active_broker_name(self) -> str:
+        count = len(self.active_brokers_set)
+        if count == 3:
+            return "Multi-Bróker (Alpaca + IBKR + Tradier)"
+        elif count > 0:
+            return f"Multi-Bróker ({' + '.join(sorted(self.active_brokers_set))})"
+        return "Ningún Bróker Activo"
+
+    def is_broker_active(self, broker_id: str) -> bool:
+        return broker_id.upper() in self.active_brokers_set
+
+    def toggle_broker_active(self, broker_id: str, active: Optional[bool] = None) -> bool:
+        b_id = broker_id.upper()
+        if b_id in ["ALL", "MULTI"]:
+            if active is False:
+                self.active_brokers_set.clear()
+            else:
+                self.active_brokers_set = {"ALPACA", "IBKR", "TRADIER"}
+            return True
+
+        if b_id in self.brokers:
+            if active is None:
+                if b_id in self.active_brokers_set:
+                    self.active_brokers_set.remove(b_id)
+                else:
+                    self.active_brokers_set.add(b_id)
+            elif active:
+                self.active_brokers_set.add(b_id)
+            else:
+                self.active_brokers_set.discard(b_id)
+            return True
+        return False
 
     def set_active_broker(self, name: str) -> bool:
         name_clean = name.upper()
+        if name_clean in ["ALL", "MULTI"]:
+            self.active_brokers_set = {"ALPACA", "IBKR", "TRADIER"}
+            return True
         if name_clean in self.brokers:
-            self.active_broker_name = name_clean
+            self.active_brokers_set.add(name_clean)
             return True
         return False
 
@@ -86,6 +141,7 @@ class BrokerManager:
 
         # Guardar en archivo .env
         self._persist_to_env(env_updates)
+        self.set_active_broker(broker_id)
 
         connected = self.brokers[broker_id].is_connected()
         status_text = "En línea y validado con API oficial ✅" if connected else "Conectado en Modo Simulado (Paper) 🛡️"
@@ -113,6 +169,10 @@ class BrokerManager:
                 if v:
                     env_dict[k] = str(v)
                     os.environ[k] = str(v)
+                    try:
+                        setattr(config, k, v)
+                    except Exception:
+                        pass
             with open(env_path, "w", encoding="utf-8") as f:
                 for k, v in env_dict.items():
                     f.write(f"{k}={v}\n")
@@ -124,10 +184,11 @@ class BrokerManager:
         statuses = []
         for key, broker in self.brokers.items():
             acc = broker.get_account_summary()
+            is_act = key in self.active_brokers_set
             statuses.append({
                 "id": key,
                 "name": broker.name,
-                "is_active": (key == self.active_broker_name),
+                "is_active": is_act,
                 "connected": acc["connected"],
                 "status": acc["status"],
                 "equity": acc["equity"],
@@ -136,3 +197,26 @@ class BrokerManager:
                 "account_number": acc.get("account_number", "")
             })
         return statuses
+
+    def get_combined_summary(self) -> Dict:
+        """Calcula el balance y poder de compra combinado de todos los brokers activos."""
+        statuses = self.get_all_brokers_status()
+        active_list = [s for s in statuses if s["is_active"]]
+        total_equity = sum(s["equity"] for s in active_list)
+        total_buying_power = sum(s["buying_power"] for s in active_list)
+        active_ids = [s["id"] for s in active_list]
+
+        if len(active_list) == 3:
+            title = "Multi-Bróker Activo (Alpaca + IBKR + Tradier) 🟢"
+        elif len(active_list) > 0:
+            title = f"Multi-Bróker ({' + '.join(active_ids)}) 🟢"
+        else:
+            title = "Ningún Bróker Activo ⚪"
+
+        return {
+            "total_equity": total_equity,
+            "total_buying_power": total_buying_power,
+            "active_count": len(active_list),
+            "active_ids": active_ids,
+            "display_title": title
+        }

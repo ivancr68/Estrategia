@@ -4,6 +4,7 @@ Servidor web interactivo con panel de control, gráficos interactivos de velas j
 escáner multi-estrategia en vivo, backtesting, opciones y gestión dinámica de credenciales de brokers.
 """
 
+import os
 from flask import Flask, render_template, jsonify, request
 import pandas as pd
 import numpy as np
@@ -93,18 +94,19 @@ def dashboard():
     }
 
     brokers_status = broker_manager.get_all_brokers_status()
+    brokers_map = {b["id"]: b for b in brokers_status}
     active_account = broker_manager.active_broker.get_account_summary()
     alerts = dispatcher.recent_alerts
 
     broker_creds = {
-        "alpaca_api_key": getattr(config, "ALPACA_API_KEY", ""),
-        "alpaca_secret_key": getattr(config, "ALPACA_SECRET_KEY", ""),
-        "alpaca_paper_mode": getattr(config, "ALPACA_PAPER_MODE", True),
-        "ibkr_account_id": getattr(config, "IBKR_ACCOUNT_ID", "DU1234567"),
-        "ibkr_gateway_url": getattr(config, "IBKR_GATEWAY_URL", "https://localhost:5000/v1/api"),
-        "tradier_access_token": getattr(config, "TRADIER_ACCESS_TOKEN", ""),
-        "tradier_account_id": getattr(config, "TRADIER_ACCOUNT_ID", "VA12345678"),
-        "tradier_paper_mode": getattr(config, "TRADIER_PAPER_MODE", True),
+        "alpaca_api_key": os.getenv("ALPACA_API_KEY", getattr(config, "ALPACA_API_KEY", "")),
+        "alpaca_secret_key": os.getenv("ALPACA_SECRET_KEY", getattr(config, "ALPACA_SECRET_KEY", "")),
+        "alpaca_paper_mode": str(os.getenv("ALPACA_PAPER_MODE", getattr(config, "ALPACA_PAPER_MODE", True))).lower() == "true",
+        "ibkr_account_id": os.getenv("IBKR_ACCOUNT_ID", getattr(config, "IBKR_ACCOUNT_ID", "DU1234567")),
+        "ibkr_gateway_url": os.getenv("IBKR_GATEWAY_URL", getattr(config, "IBKR_GATEWAY_URL", "https://localhost:5000/v1/api")),
+        "tradier_access_token": os.getenv("TRADIER_ACCESS_TOKEN", getattr(config, "TRADIER_ACCESS_TOKEN", "")),
+        "tradier_account_id": os.getenv("TRADIER_ACCOUNT_ID", getattr(config, "TRADIER_ACCOUNT_ID", "VA12345678")),
+        "tradier_paper_mode": str(os.getenv("TRADIER_PAPER_MODE", getattr(config, "TRADIER_PAPER_MODE", True))).lower() == "true",
     }
 
     return render_template(
@@ -115,7 +117,9 @@ def dashboard():
         recent_trades=recent_trades,
         portfolio_methods=portfolio_methods,
         brokers_status=brokers_status,
-        active_broker=broker_manager.active_broker.name,
+        brokers_map=brokers_map,
+        combined_summary=broker_manager.get_combined_summary(),
+        active_broker=broker_manager.active_broker_name,
         active_account=active_account,
         alerts=alerts,
         min_confluence_score=config.MIN_CONFLUENCE_SCORE,
@@ -198,12 +202,27 @@ def api_equity_data():
 
 @app.route("/api/broker/select", methods=["POST"])
 def select_broker():
-    broker_id = request.json.get("broker_id", "ALPACA")
+    broker_id = request.json.get("broker_id", "ALL")
     success = broker_manager.set_active_broker(broker_id)
     return jsonify({
         "success": success,
-        "active_broker": broker_manager.active_broker.name,
-        "account": broker_manager.active_broker.get_account_summary()
+        "active_broker": broker_manager.active_broker_name,
+        "combined": broker_manager.get_combined_summary(),
+        "brokers": broker_manager.get_all_brokers_status()
+    })
+
+
+@app.route("/api/broker/toggle", methods=["POST"])
+def toggle_broker():
+    data = request.json or {}
+    broker_id = data.get("broker_id", "ALL")
+    active = data.get("active", None)
+    success = broker_manager.toggle_broker_active(broker_id, active)
+    return jsonify({
+        "success": success,
+        "active_broker": broker_manager.active_broker_name,
+        "combined": broker_manager.get_combined_summary(),
+        "brokers": broker_manager.get_all_brokers_status()
     })
 
 

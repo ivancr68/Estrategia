@@ -441,9 +441,9 @@
             </div>
         </div>
         <div class="session-info">
-            <div>BROKER: <strong style="color: var(--accent-blue);" id="header-broker">{{ active_broker }}</strong></div>
-            <div>BALANCE: <strong style="color: var(--accent-green);">${{ "{:,.2f}".format(active_account.equity) }}</strong></div>
-            <div>PODER COMPRA: <strong>${{ "{:,.2f}".format(active_account.buying_power) }}</strong></div>
+            <div>ENRUTAMIENTO: <strong style="color: var(--accent-blue);" id="header-broker">{{ combined_summary.display_title }}</strong></div>
+            <div>BALANCE COMBINADO: <strong style="color: var(--accent-green);">${{ "{:,.2f}".format(combined_summary.total_equity) }}</strong></div>
+            <div>PODER COMPRA TOTAL: <strong style="color: #00d084;">${{ "{:,.2f}".format(combined_summary.total_buying_power) }}</strong></div>
             <div>ALERTAS: <span class="badge-score" id="alert-counter">{{ alerts|length }}</span></div>
         </div>
     </header>
@@ -803,36 +803,40 @@
                         Configura y activa tus credenciales de API para cada broker. Cada uno cuenta con modo <strong>Paper Trading (Simulado)</strong> para operar sin riesgo.
                     </p>
                 </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <span style="font-size: 12px; color: var(--text-muted);">Broker Activo:</span>
-                    <strong style="color: var(--accent-blue); font-size: 14px; background: rgba(0, 168, 255, 0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent-blue);">{{ active_broker }}</strong>
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <button class="btn" style="background: rgba(0, 208, 132, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); padding: 8px 16px; font-weight: 700;" onclick="toggleBroker('ALL', true)">
+                        ⚡ ACTIVAR TODOS LOS BRÓKERS (100% CONCURRENTE)
+                    </button>
+                    <span style="font-size: 13px; color: var(--accent-blue); background: rgba(0, 168, 255, 0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent-blue); font-weight: 600;">
+                        {{ combined_summary.display_title }}
+                    </span>
                 </div>
             </div>
 
             <div class="grid-3">
                 <!-- CARD 1: ALPACA MARKETS -->
-                <div class="card" style="border-top: 4px solid {{ '#00d084' if 'Alpaca' in active_broker else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
+                <div class="card" style="border-top: 4px solid {{ '#00d084' if brokers_map['ALPACA'].is_active else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                         <div class="card-header">
                             <div>
                                 <div class="ticker-name" style="color: #00d084;">🦙 Alpaca Securities</div>
                                 <div class="ticker-desc">Alpaca Markets LLC | SEC & FINRA</div>
                             </div>
-                            <span class="{{ 'badge-bull' if 'Alpaca' in active_broker else 'badge-neutral' }}">
-                                {{ 'ENRUTADOR ACTIVO' if 'Alpaca' in active_broker else 'DISPONIBLE' }}
+                            <span class="{{ 'badge-bull' if brokers_map['ALPACA'].is_active else 'badge-neutral' }}">
+                                {{ '🟢 ENRUTADOR ACTIVO' if brokers_map['ALPACA'].is_active else '⚪ PAUSADO' }}
                             </span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Estado Conexión:</span>
-                            <span class="metric-value" style="color: #00d084;">En línea (Paper) ✅</span>
+                            <span class="metric-value" style="color: {{ '#00d084' if brokers_map['ALPACA'].connected else '#ffa502' }}; font-weight: 700;">{{ brokers_map['ALPACA'].status }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Balance Cuenta:</span>
-                            <span class="metric-value">$100,000.00</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['ALPACA'].equity) }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Poder de Compra:</span>
-                            <span class="metric-value">$200,000.00</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['ALPACA'].buying_power) }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Instrumentos:</span>
@@ -866,39 +870,37 @@
                     </div>
 
                     <div style="margin-top: 16px;">
-                        {% if 'Alpaca' not in active_broker %}
-                        <button class="btn" style="width: 100%; padding: 10px;" onclick="selectBroker('ALPACA')">⚡ Activar Alpaca como Broker Principal</button>
+                        {% if not brokers_map['ALPACA'].is_active %}
+                        <button class="btn" style="width: 100%; padding: 10px;" onclick="toggleBroker('ALPACA', true)">⚡ Activar Alpaca</button>
                         {% else %}
-                        <div style="text-align: center; padding: 8px; background: rgba(0, 208, 132, 0.1); border-radius: 6px; color: var(--accent-green); font-weight: 600; font-size: 12px;">
-                            ✓ Enrutador Principal Activo en Telegram
-                        </div>
+                        <button class="btn" style="width: 100%; padding: 10px; background: rgba(0, 208, 132, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green);" onclick="toggleBroker('ALPACA', false)">✓ Activo Concurrente (Clic para pausar)</button>
                         {% endif %}
                     </div>
                 </div>
 
                 <!-- CARD 2: INTERACTIVE BROKERS (IBKR) -->
-                <div class="card" style="border-top: 4px solid {{ '#00a8ff' if 'Interactive' in active_broker else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
+                <div class="card" style="border-top: 4px solid {{ '#00a8ff' if brokers_map['IBKR'].is_active else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                         <div class="card-header">
                             <div>
                                 <div class="ticker-name" style="color: #00a8ff;">🏛️ Interactive Brokers</div>
                                 <div class="ticker-desc">IBKR LLC | SEC / FINRA / NYSE</div>
                             </div>
-                            <span class="{{ 'badge-bull' if 'Interactive' in active_broker else 'badge-neutral' }}">
-                                {{ 'ENRUTADOR ACTIVO' if 'Interactive' in active_broker else 'DISPONIBLE' }}
+                            <span class="{{ 'badge-bull' if brokers_map['IBKR'].is_active else 'badge-neutral' }}">
+                                {{ '🟢 ENRUTADOR ACTIVO' if brokers_map['IBKR'].is_active else '⚪ PAUSADO' }}
                             </span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Estado Conexión:</span>
-                            <span class="metric-value" style="color: #ffa502;">Modo Simulado / Gateway 🛡️</span>
+                            <span class="metric-value" style="color: {{ '#00d084' if brokers_map['IBKR'].connected else '#ffa502' }}; font-weight: 700;">{{ brokers_map['IBKR'].status }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Balance Cuenta Paper:</span>
-                            <span class="metric-value">$25,000.00</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['IBKR'].equity) }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Poder de Compra (Margen):</span>
-                            <span class="metric-value">$50,000.00</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['IBKR'].buying_power) }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Instrumentos:</span>
@@ -921,44 +923,46 @@
                                 <input type="text" id="ibkr_gateway_url" class="form-input" value="{{ broker_creds.ibkr_gateway_url }}" placeholder="https://localhost:5000/v1/api">
                                 <span class="form-hint">Client Portal Gateway en https://localhost:5000 o TWS API en puerto 7497.</span>
                             </div>
-                            <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px 12px;" onclick="saveBrokerCredentials('IBKR')">💾 Guardar y Conectar IBKR</button>
+                            <div style="margin-top: 10px; margin-bottom: 8px; font-size: 11px; color: #cbd5e1; background: rgba(0, 168, 255, 0.08); padding: 10px; border-radius: 6px; border-left: 3px solid #00a8ff; line-height: 1.45;">
+                                🔒 <strong>¿Por qué no hay campo de clave/secret?</strong><br>
+                                Interactive Brokers no utiliza API Key ni contraseña fija en texto plano. La autenticación se realiza de manera segura con tu usuario y 2FA directamente en la pasarela local oficial (<a href="https://localhost:5000" target="_blank" style="color: #00a8ff; font-weight: 600; text-decoration: underline;">https://localhost:5000</a>) o mediante Trader Workstation (TWS).
+                            </div>
+                            <button class="btn" style="width: 100%; margin-top: 6px; padding: 8px 12px;" onclick="saveBrokerCredentials('IBKR')">💾 Guardar y Conectar IBKR</button>
                         </div>
                     </div>
 
                     <div style="margin-top: 16px;">
-                        {% if 'Interactive' not in active_broker %}
-                        <button class="btn" style="width: 100%; padding: 10px;" onclick="selectBroker('IBKR')">⚡ Activar IBKR como Broker Principal</button>
+                        {% if not brokers_map['IBKR'].is_active %}
+                        <button class="btn" style="width: 100%; padding: 10px;" onclick="toggleBroker('IBKR', true)">⚡ Activar IBKR</button>
                         {% else %}
-                        <div style="text-align: center; padding: 8px; background: rgba(0, 168, 255, 0.1); border-radius: 6px; color: var(--accent-blue); font-weight: 600; font-size: 12px;">
-                            ✓ Enrutador Principal Activo en Telegram
-                        </div>
+                        <button class="btn" style="width: 100%; padding: 10px; background: rgba(0, 168, 255, 0.15); color: var(--accent-blue); border: 1px solid var(--accent-blue);" onclick="toggleBroker('IBKR', false)">✓ Activo Concurrente (Clic para pausar)</button>
                         {% endif %}
                     </div>
                 </div>
 
                 <!-- CARD 3: TRADIER BROKERAGE -->
-                <div class="card" style="border-top: 4px solid {{ '#ffa502' if 'Tradier' in active_broker else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
+                <div class="card" style="border-top: 4px solid {{ '#ffa502' if brokers_map['TRADIER'].is_active else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                         <div class="card-header">
                             <div>
                                 <div class="ticker-name" style="color: #ffa502;">📈 Tradier Brokerage</div>
                                 <div class="ticker-desc">Especialista en Opciones API | SEC / FINRA</div>
                             </div>
-                            <span class="{{ 'badge-bull' if 'Tradier' in active_broker else 'badge-neutral' }}">
-                                {{ 'ENRUTADOR ACTIVO' if 'Tradier' in active_broker else 'DISPONIBLE' }}
+                            <span class="{{ 'badge-bull' if brokers_map['TRADIER'].is_active else 'badge-neutral' }}">
+                                {{ '🟢 ENRUTADOR ACTIVO' if brokers_map['TRADIER'].is_active else '⚪ PAUSADO' }}
                             </span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Estado Conexión:</span>
-                            <span class="metric-value" style="color: #ffa502;">Sandbox / Simulado 🛡️</span>
+                            <span class="metric-value" style="color: {{ '#00d084' if brokers_map['TRADIER'].connected else '#ffa502' }}; font-weight: 700;">{{ brokers_map['TRADIER'].status }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Balance Cuenta Demo:</span>
-                            <span class="metric-value">$25,000.00</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['TRADIER'].equity) }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Poder de Compra:</span>
-                            <span class="metric-value">$50,000.00</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['TRADIER'].buying_power) }}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Instrumentos:</span>
@@ -986,18 +990,19 @@
                                     <option value="false" {% if not broker_creds.tradier_paper_mode %}selected{% endif %}>Live Real (Producción)</option>
                                 </select>
                             </div>
-                            <span class="form-hint">Genera tu Sandbox Token gratis en developer.tradier.com &gt; API Access.</span>
-                            <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px 12px;" onclick="saveBrokerCredentials('TRADIER')">💾 Guardar y Conectar Tradier</button>
+                            <span class="form-hint">Opcional: Si tienes token oficial de developer.tradier.com pégalo aquí.</span>
+                            <div style="margin-top: 8px; margin-bottom: 8px; font-size: 11px; color: #cbd5e1; background: rgba(255, 165, 2, 0.08); padding: 9px; border-radius: 6px; border-left: 3px solid #ffa502; line-height: 1.45;">
+                                💡 <strong>Sandbox Virtual Activo:</strong> Puedes operar y enrutar opciones ya mismo sin trámites. Si en el futuro deseas tu cuenta oficial de Tradier, solo pega tu token arriba y pulsa guardar.
+                            </div>
+                            <button class="btn" style="width: 100%; margin-top: 4px; padding: 8px 12px;" onclick="saveBrokerCredentials('TRADIER')">💾 Guardar y Conectar Tradier</button>
                         </div>
                     </div>
 
                     <div style="margin-top: 16px;">
-                        {% if 'Tradier' not in active_broker %}
-                        <button class="btn" style="width: 100%; padding: 10px;" onclick="selectBroker('TRADIER')">⚡ Activar Tradier como Broker Principal</button>
+                        {% if not brokers_map['TRADIER'].is_active %}
+                        <button class="btn" style="width: 100%; padding: 10px;" onclick="toggleBroker('TRADIER', true)">⚡ Activar Tradier</button>
                         {% else %}
-                        <div style="text-align: center; padding: 8px; background: rgba(255, 165, 2, 0.1); border-radius: 6px; color: var(--accent-gold); font-weight: 600; font-size: 12px;">
-                            ✓ Enrutador Principal Activo en Telegram
-                        </div>
+                        <button class="btn" style="width: 100%; padding: 10px; background: rgba(255, 165, 2, 0.15); color: #ffa502; border: 1px solid #ffa502;" onclick="toggleBroker('TRADIER', false)">✓ Activo Concurrente (Clic para pausar)</button>
                         {% endif %}
                     </div>
                 </div>
@@ -1021,8 +1026,14 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-            event.target.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+            const activeBtn = (window.event && window.event.currentTarget) || document.querySelector(`[onclick*="${tabId}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+            const targetContent = document.getElementById(tabId);
+            if (targetContent) targetContent.classList.add('active');
+
+            try {
+                sessionStorage.setItem('activeTradingTab', tabId);
+            } catch (e) {}
 
             if (tabId === 'tab-charts') {
                 setTimeout(loadCurrentSymbol, 100);
@@ -1195,6 +1206,25 @@
             });
         }
 
+        function toggleBroker(brokerId, active) {
+            fetch('/api/broker/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({broker_id: brokerId, active: active})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const msg = active === true ? `✓ ${brokerId} activado para enrutamiento simultáneo` : (active === false ? `⏸️ ${brokerId} pausado` : `✓ Estado actualizado`);
+                    showToast(msg);
+                    setTimeout(() => location.reload(), 1000);
+                }
+            })
+            .catch(err => {
+                showToast("Error al alternar broker: " + err);
+            });
+        }
+
         function saveBrokerCredentials(brokerId) {
             let payload = { broker_id: brokerId };
 
@@ -1284,9 +1314,18 @@
             setTimeout(() => { toast.style.display = 'none'; }, 4000);
         }
 
-        // Cargar gráfico inicial de SPY al abrir
+        // Cargar vista inicial o pestaña previa al abrir/recargar
         window.addEventListener('DOMContentLoaded', () => {
-            loadCurrentSymbol();
+            let savedTab = null;
+            try {
+                savedTab = sessionStorage.getItem('activeTradingTab');
+            } catch (e) {}
+
+            if (savedTab && document.getElementById(savedTab)) {
+                switchTab(savedTab);
+            } else {
+                loadCurrentSymbol();
+            }
         });
     </script>
 </body>
