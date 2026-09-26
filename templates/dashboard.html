@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wall Street Algo Trading Terminal - NYSE, Options & Charts</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --bg-base: #0b0e14;
+            --bg-card: #151922;
+            --bg-card-hover: #1c2230;
+            --border-color: #232b3b;
+            --text-main: #f0f3f8;
+            --text-muted: #8b98ad;
+            --accent-green: #00d084;
+            --accent-red: #ff4757;
+            --accent-blue: #00a8ff;
+            --accent-purple: #9c88ff;
+            --accent-gold: #ffa502;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* HEADER */
+        header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            font-size: 24px;
+        }
+
+        .brand-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-badge {
+            background: linear-gradient(135deg, #00a8ff, #9c88ff);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .session-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        /* TABS NAVIGATION */
+        .nav-tabs {
+            display: flex;
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            gap: 8px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 14px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+        }
+
+        /* MAIN CONTENT */
+        main {
+            flex: 1;
+            padding: 24px 32px;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* CARDS GRID */
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: #313d54;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .ticker-name {
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .ticker-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .ticker-price {
+            font-size: 26px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 12px;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 13px;
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .badge-bull {
+            background-color: rgba(0, 208, 132, 0.15);
+            color: var(--accent-green);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-bear {
+            background-color: rgba(255, 71, 87, 0.15);
+            color: var(--accent-red);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-score {
+            background: linear-gradient(135deg, #ffa502, #ff4757);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* TABLES */
+        .table-container {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        th {
+            background-color: #1a202c;
+            color: var(--text-muted);
+            padding: 14px 18px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        tr:hover td {
+            background-color: var(--bg-card-hover);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent-blue), #0077cc);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, var(--accent-gold), #e67e22);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .btn-ticker {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+        }
+
+        .btn-ticker.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* CHART CONTAINER STYLING */
+        .chart-box {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+
+        #tv-chart-container, #equity-chart-container {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #0d1117;
+        }
+
+        /* TOAST NOTIFICATION */
+        #alert-toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #1e2430;
+            border-left: 5px solid var(--accent-gold);
+            padding: 18px 24px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            display: none;
+            z-index: 9999;
+            max-width: 420px;
+        }
+
+        /* FORM CONTROLS & BROKER CREDENTIALS */
+        .credentials-box {
+            background: #10141d;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: #161b22;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #f0f3f8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .form-select {
+            width: 100%;
+            background: #161b22;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #f0f3f8;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .form-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            display: block;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <span class="brand-logo">🏛️</span>
+            <div>
+                <span class="brand-title">NYSE Quant Options Terminal</span>
+                <span class="brand-badge">TradingView Charts & Multi-Broker</span>
+            </div>
+        </div>
+        <div class="session-info">
+            <div>BROKER: <strong style="color: var(--accent-blue);" id="header-broker">{{ active_broker }}</strong></div>
+            <div>BALANCE: <strong style="color: var(--accent-green);">${{ "{:,.2f}".format(active_account.equity) }}</strong></div>
+            <div>PODER COMPRA: <strong>${{ "{:,.2f}".format(active_account.buying_power) }}</strong></div>
+            <div>ALERTAS: <span class="badge-score" id="alert-counter">{{ alerts|length }}</span></div>
+        </div>
+    </header>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-charts')">📈 Gráficos Interactivos (TradingView)</button>
+        <button class="tab-btn" onclick="switchTab('tab-etfs')">📊 Monitor ETFs</button>
+        <button class="tab-btn" onclick="switchTab('tab-senales')">⚡ Señales & Convicción</button>
+        <button class="tab-btn" onclick="switchTab('tab-alertas')">🔔 Centro de Alertas ({{ alerts|length }})</button>
+        <button class="tab-btn" onclick="switchTab('tab-backtest')">📈 Backtesting & Curva Capital</button>
+        <button class="tab-btn" onclick="switchTab('tab-portfolio')">💼 Asignación Portafolio</button>
+        <button class="tab-btn" onclick="switchTab('tab-brokers')">🔌 Brokers (Alpaca/IBKR/Tradier)</button>
+    </div>
+
+    <main>
+        <!-- TAB 0: GRÁFICOS INTERACTIVOS (NUEVO) -->
+        <div id="tab-charts" class="tab-content active">
+            <div class="chart-box">
+                <div class="chart-controls">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-right: 4px;">ACTIVO:</span>
+                        <button class="btn-ticker active" onclick="loadSymbolChart('SPY')">SPY</button>
+                        <button class="btn-ticker" onclick="loadSymbolChart('QQQ')">QQQ</button>
+                        <button class="btn-ticker" onclick="loadSymbolChart('IWM')">IWM</button>
+                        <button class="btn-ticker" onclick="loadSymbolChart('DIA')">DIA</button>
+                    </div>
+
+                    <div class="chart-legend">
+                        <div><span class="legend-dot" style="background: #00d084;"></span>Velas Alcistas</div>
+                        <div><span class="legend-dot" style="background: #ff4757;"></span>Velas Bajistas</div>
+                        <div><span class="legend-dot" style="background: #00a8ff;"></span>EMA 20</div>
+                        <div><span class="legend-dot" style="background: #ffa502;"></span>EMA 50</div>
+                        <div><span class="legend-dot" style="background: #9c88ff;"></span>EMA 200 (Macro)</div>
+                        <div><span class="legend-dot" style="background: #4a5568;"></span>Bollinger (2.0σ)</div>
+                    </div>
+
+                    <div>
+                        <button class="btn" style="padding: 6px 14px; font-size: 12px;" onclick="loadCurrentSymbol()">🔄 Recargar Gráfico</button>
+                    </div>
+                </div>
+
+                <div id="chart-header-info" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; margin-bottom: 12px; color: var(--accent-blue);">
+                    Cargando cotizaciones de alta precisión...
+                </div>
+
+                <!-- CONTENEDOR DEL GRÁFICO PRINCIPAL DE VELAS -->
+                <div id="tv-chart-container" style="height: 480px;"></div>
+
+                <!-- CONTENEDOR DEL OSCILADOR RSI -->
+                <div style="margin-top: 14px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); display: flex; justify-content: space-between;">
+                    <span>OSCILADOR RSI (14 PERÍODOS)</span>
+                    <span>Zona Sobrecompra: 70 | Zona Sobreventa: 30</span>
+                </div>
+                <div id="tv-rsi-container" style="height: 140px; margin-top: 6px; border-radius: 8px; overflow: hidden; background: #0d1117;"></div>
+            </div>
+        </div>
+
+        <!-- TAB 1: ETFS -->
+        <div id="tab-etfs" class="tab-content">
+            <div class="actions-bar">
+                <h2>Cesta de ETFs Principales de Wall Street</h2>
+                <button class="btn" onclick="location.reload()">🔄 Actualizar Cotizaciones</button>
+            </div>
+            <div class="grid-4">
+                {% for etf in etfs_summary %}
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <div class="ticker-name">{{ etf.symbol }}</div>
+                            <div class="ticker-desc">{{ etf.name }}</div>
+                        </div>
+                        <span class="{{ 'badge-bull' if etf.trend_regime == 1 else ('badge-bear' if etf.trend_regime == -1 else 'badge-neutral') }}">
+                            {{ 'TENDENCIA ALCISTA' if etf.trend_regime == 1 else ('TENDENCIA BAJISTA' if etf.trend_regime == -1 else 'RANGO LATERAL') }}
+                        </span>
+                    </div>
+                    <div class="ticker-price">${{ etf.close }}</div>
+                    <div class="metric-row">
+                        <span class="metric-label">EMA 200 (Macro):</span>
+                        <span class="metric-value">${{ etf.ema_200 }}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">RSI (14):</span>
+                        <span class="metric-value" style="color: {{ '#ff4757' if etf.rsi > 70 else ('#00d084' if etf.rsi < 30 else '#f0f3f8') }}">
+                            {{ etf.rsi }}
+                        </span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">ATR Volatilidad (14):</span>
+                        <span class="metric-value">${{ etf.atr_14 }}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Fase de Sesión:</span>
+                        <span class="metric-value">{{ etf.session_phase_str }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- TAB 2: SEÑALES & OPCIONES -->
+        <div id="tab-senales" class="tab-content">
+            <div class="actions-bar">
+                <div>
+                    <h2>Oportunidades Multi-Estrategia y Contratos de Opciones</h2>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+                        Señales Direccionales Alcistas (Calls) y Bajistas (Puts / Spreads) con puntuación de convicción profesional.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-ticker active" onclick="filterSignals('ALL')">Todos ({{ signals|length }})</button>
+                    <button class="btn-ticker" onclick="filterSignals('CALL')">🟢 Solo Calls / Alcistas</button>
+                    <button class="btn-ticker" onclick="filterSignals('PUT')">🔴 Solo Puts / Bajistas</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="table-signals">
+                    <thead>
+                        <tr>
+                            <th>Símbolo</th>
+                            <th>Convicción</th>
+                            <th>Estrategia</th>
+                            <th>Dirección & Acción</th>
+                            <th>Entrada</th>
+                            <th>Stop Loss</th>
+                            <th>Take Profit</th>
+                            <th>Detalle de Opción / Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in signals %}
+                        <tr class="signal-row" data-type="{{ 'CALL' if ('CALL' in s.action or s.action == 'BUY_STOCK') else 'PUT' }}">
+                            <td style="font-weight: 700; color: var(--accent-blue);">{{ s.symbol }}</td>
+                            <td>
+                                <span class="{{ 'badge-score' if s.confluence_score >= min_confluence_score else 'badge-bull' }}" style="{{ 'background: rgba(255, 165, 2, 0.2); color: var(--accent-gold);' if s.confluence_score < min_confluence_score else '' }}">
+                                    {{ s.confluence_score }}% {{ '⭐ ALTA' if s.confluence_score >= min_confluence_score else '' }}
+                                </span>
+                            </td>
+                            <td>{{ s.strategy }}</td>
+                            <td>
+                                {% if 'CALL' in s.action or s.action == 'BUY_STOCK' %}
+                                    <span class="badge-bull">🟢 {{ s.action }}</span>
+                                {% else %}
+                                    <span class="badge-bear">🔴 {{ s.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td>${{ s.entry_price }}</td>
+                            <td>${{ s.stop_loss }}</td>
+                            <td>${{ s.take_profit }}</td>
+                            <td>
+                                {% if s.instrument == 'OPTION' %}
+                                    <strong style="color: var(--accent-gold);">{{ s.details.instruction }}</strong><br>
+                                    <small style="color: var(--text-muted);">Costo: ${{ s.details.cost_per_contract }} | Max Beneficio: ${{ s.details.max_profit }} | R:R {{ s.details.risk_reward_ratio }}</small>
+                                {% else %}
+                                    <small style="color: var(--text-muted);">{{ s.rationale }}</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 3: CENTRO DE ALERTAS -->
+        <div id="tab-alertas" class="tab-content">
+            <div class="actions-bar">
+                <div>
+                    <h2>Centro de Alertas Institucionales de Alta Convicción (Score &ge; {{ min_confluence_score }}%)</h2>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Alertas emitidas cuando una oportunidad supera todos los filtros técnicos y de gestión de riesgo.</p>
+                </div>
+                <button class="btn-gold" onclick="sendTestAlert()">🔔 Enviar Alerta de Prueba a Telegram</button>
+            </div>
+
+            <div class="grid-3" style="margin-top: 20px;">
+                {% for a in alerts %}
+                <div class="card" style="border-left: 4px solid var(--accent-gold);">
+                    <div class="card-header">
+                        <div>
+                            <span class="ticker-name" style="color: var(--accent-blue);">{{ a.symbol }}</span>
+                            <span class="badge-score" style="margin-left: 8px;">Convicción: {{ a.confluence_score }}%</span>
+                        </div>
+                        <span style="font-size: 11px; color: var(--text-muted);">{{ a.timestamp }}</span>
+                    </div>
+                    <div style="font-size: 15px; font-weight: 700; margin-bottom: 8px; color: {{ '#00d084' if ('CALL' in a.action or a.action == 'BUY_STOCK') else '#ff4757' }};">
+                        {{ '🟢 ' if ('CALL' in a.action or a.action == 'BUY_STOCK') else '🔴 ' }}{{ a.action }} ({{ a.strategy }})
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Precio Entrada:</span>
+                        <span class="metric-value">${{ a.entry_price }}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Stop Loss:</span>
+                        <span class="metric-value">${{ a.stop_loss }}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Take Profit:</span>
+                        <span class="metric-value">${{ a.take_profit }}</span>
+                    </div>
+                    {% if a.option_details %}
+                    <div style="margin-top: 12px; padding: 10px; background: rgba(255, 165, 2, 0.1); border-radius: 8px; font-size: 12px;">
+                        <strong style="color: var(--accent-gold);">Opción Sugerida:</strong><br>
+                        {{ a.option_details.instruction }}<br>
+                        <span style="color: var(--text-muted);">Costo: ${{ a.option_details.cost_per_contract }} | Beneficio: ${{ a.option_details.max_profit }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
+                    <div style="font-size: 32px; margin-bottom: 12px;">🔔</div>
+                    <h3>No hay alertas recientes en este momento</h3>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-top: 6px;">El motor monitorea continuamente los 4 ETFs para emitir alertas apenas una oportunidad supere el {{ min_confluence_score }}% de calidad institucional.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- TAB 4: BACKTESTING -->
+        <div id="tab-backtest" class="tab-content">
+            <div class="actions-bar">
+                <h2>Reporte de Validación Institucional (Backtesting con Fricciones)</h2>
+                <span class="badge-bull">Capital Inicial: $25,000</span>
+            </div>
+            <div class="grid-4">
+                <div class="card">
+                    <div class="metric-label">Esperanza Matemática (E):</div>
+                    <div class="ticker-price" style="color: {{ '#00d084' if metrics.expectancy > 0 else '#ff4757' }}">
+                        ${{ metrics.expectancy }}
+                    </div>
+                    <div class="ticker-desc">Ganancia esperada por dólar arriesgado</div>
+                </div>
+                <div class="card">
+                    <div class="metric-label">Profit Factor:</div>
+                    <div class="ticker-price" style="color: var(--accent-green);">
+                        {{ metrics.profit_factor }}
+                    </div>
+                    <div class="ticker-desc">Ganancia Bruta / Pérdida Bruta</div>
+                </div>
+                <div class="card">
+                    <div class="metric-label">Tasa de Acierto (Win Rate):</div>
+                    <div class="ticker-price" style="color: var(--accent-blue);">
+                        {{ metrics.win_rate_pct }}%
+                    </div>
+                    <div class="ticker-desc">Ratio asimétrico 1:2 mínimo</div>
+                </div>
+                <div class="card">
+                    <div class="metric-label">Máximo Drawdown:</div>
+                    <div class="ticker-price" style="color: var(--accent-gold);">
+                        {{ metrics.max_drawdown_pct }}%
+                    </div>
+                    <div class="ticker-desc">Control estricto de preservación</div>
+                </div>
+            </div>
+
+            <!-- GRÁFICO DE CURVA DE CAPITAL -->
+            <div class="chart-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3>📈 Evolución de la Curva de Capital (Equity Curve)</h3>
+                    <span style="font-family: 'JetBrains Mono', monospace; color: var(--accent-green);">Balance Final: ${{ "{:,.2f}".format(metrics.final_balance) }}</span>
+                </div>
+                <div id="equity-chart-container" style="height: 260px;"></div>
+            </div>
+
+            <div class="table-container">
+                <div style="padding: 16px 20px; font-weight: 700; border-bottom: 1px solid var(--border-color);">
+                    Registro Reciente de Operaciones Auditadas
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Símbolo</th>
+                            <th>Instrumento</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Resultado</th>
+                            <th>P&L Neto ($)</th>
+                            <th>Balance ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in recent_trades %}
+                        <tr>
+                            <td style="font-weight: 700;">{{ t.symbol }}</td>
+                            <td>{{ t.instrument }}</td>
+                            <td>${{ t.entry_price }}</td>
+                            <td>${{ t.exit_price }}</td>
+                            <td>
+                                <span class="{{ 'badge-bull' if t.outcome == 'TAKE_PROFIT' else 'badge-bear' }}">
+                                    {{ t.outcome }}
+                                </span>
+                            </td>
+                            <td style="color: {{ '#00d084' if t.net_pnl > 0 else '#ff4757' }}; font-weight: 700;">
+                                ${{ t.net_pnl }}
+                            </td>
+                            <td>${{ t.balance }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 5: PORTFOLIO -->
+        <div id="tab-portfolio" class="tab-content">
+            <div class="actions-bar">
+                <h2>Asignación de Capital Multiactivo (5 Métodos - Video 18)</h2>
+            </div>
+            <div class="grid-4">
+                <div class="card">
+                    <h3>1. Equal Weight</h3>
+                    <div class="ticker-desc" style="margin-bottom: 12px;">Reparto 25% equitativo</div>
+                    {% for sym, val in portfolio_methods.equal.items() %}
+                    <div class="metric-row">
+                        <span class="metric-label">{{ sym }}:</span>
+                        <span class="metric-value">${{ val }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card">
+                    <h3>2. Volatility Parity</h3>
+                    <div class="ticker-desc" style="margin-bottom: 12px;">Inverso a la volatilidad ATR</div>
+                    {% for sym, val in portfolio_methods.volatility.items() %}
+                    <div class="metric-row">
+                        <span class="metric-label">{{ sym }}:</span>
+                        <span class="metric-value">${{ val }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card">
+                    <h3>3. Half-Kelly Criterion</h3>
+                    <div class="ticker-desc" style="margin-bottom: 12px;">Crecimiento óptimo geométrico</div>
+                    {% for sym, val in portfolio_methods.kelly.items() %}
+                    <div class="metric-row">
+                        <span class="metric-label">{{ sym }}:</span>
+                        <span class="metric-value">${{ val }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card">
+                    <h3>4. Momentum Weighted</h3>
+                    <div class="ticker-desc" style="margin-bottom: 12px;">Sobreponderación por fuerza relativa</div>
+                    {% for sym, val in portfolio_methods.momentum.items() %}
+                    <div class="metric-row">
+                        <span class="metric-label">{{ sym }}:</span>
+                        <span class="metric-value">${{ val }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 6: BROKERS REGULADOS EE.UU. -->
+        <div id="tab-brokers" class="tab-content">
+            <div class="actions-bar">
+                <div>
+                    <h2>Enrutamiento Multibróker Regulado en EE.UU. (SEC / FINRA / SIPC)</h2>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+                        Configura y activa tus credenciales de API para cada broker. Cada uno cuenta con modo <strong>Paper Trading (Simulado)</strong> para operar sin riesgo.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span style="font-size: 12px; color: var(--text-muted);">Broker Activo:</span>
+                    <strong style="color: var(--accent-blue); font-size: 14px; background: rgba(0, 168, 255, 0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent-blue);">{{ active_broker }}</strong>
+                </div>
+            </div>
+
+            <div class="grid-3">
+                <!-- CARD 1: ALPACA MARKETS -->
+                <div class="card" style="border-top: 4px solid {{ '#00d084' if 'Alpaca' in active_broker else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div class="card-header">
+                            <div>
+                                <div class="ticker-name" style="color: #00d084;">🦙 Alpaca Securities</div>
+                                <div class="ticker-desc">Alpaca Markets LLC | SEC & FINRA</div>
+                            </div>
+                            <span class="{{ 'badge-bull' if 'Alpaca' in active_broker else 'badge-neutral' }}">
+                                {{ 'ENRUTADOR ACTIVO' if 'Alpaca' in active_broker else 'DISPONIBLE' }}
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Estado Conexión:</span>
+                            <span class="metric-value" style="color: #00d084;">En línea (Paper) ✅</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Balance Cuenta:</span>
+                            <span class="metric-value">$100,000.00</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Poder de Compra:</span>
+                            <span class="metric-value">$200,000.00</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Instrumentos:</span>
+                            <span class="metric-value">Acciones & ETFs (Sin comisiones)</span>
+                        </div>
+
+                        <!-- Formulario de Credenciales Alpaca -->
+                        <div class="credentials-box">
+                            <div style="font-weight: 700; font-size: 12px; margin-bottom: 8px; color: var(--accent-blue); display: flex; justify-content: space-between;">
+                                <span>⚙️ Credenciales Alpaca API</span>
+                                <small style="color: var(--text-muted);">Paper / Live</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API Key ID:</label>
+                                <input type="text" id="alpaca_api_key" class="form-input" value="{{ broker_creds.alpaca_api_key }}" placeholder="PK...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Secret Key:</label>
+                                <input type="password" id="alpaca_secret_key" class="form-input" value="{{ broker_creds.alpaca_secret_key }}" placeholder="Secret Key">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Modo Operativo:</label>
+                                <select id="alpaca_paper_mode" class="form-select">
+                                    <option value="true" {% if broker_creds.alpaca_paper_mode %}selected{% endif %}>Paper Trading (Simulado Gratis)</option>
+                                    <option value="false" {% if not broker_creds.alpaca_paper_mode %}selected{% endif %}>Live Trading (Dinero Real)</option>
+                                </select>
+                            </div>
+                            <span class="form-hint">Obtén tus llaves en alpaca.markets &gt; Paper Trading &gt; View API Keys.</span>
+                            <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px 12px;" onclick="saveBrokerCredentials('ALPACA')">💾 Guardar Credenciales Alpaca</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        {% if 'Alpaca' not in active_broker %}
+                        <button class="btn" style="width: 100%; padding: 10px;" onclick="selectBroker('ALPACA')">⚡ Activar Alpaca como Broker Principal</button>
+                        {% else %}
+                        <div style="text-align: center; padding: 8px; background: rgba(0, 208, 132, 0.1); border-radius: 6px; color: var(--accent-green); font-weight: 600; font-size: 12px;">
+                            ✓ Enrutador Principal Activo en Telegram
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- CARD 2: INTERACTIVE BROKERS (IBKR) -->
+                <div class="card" style="border-top: 4px solid {{ '#00a8ff' if 'Interactive' in active_broker else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div class="card-header">
+                            <div>
+                                <div class="ticker-name" style="color: #00a8ff;">🏛️ Interactive Brokers</div>
+                                <div class="ticker-desc">IBKR LLC | SEC / FINRA / NYSE</div>
+                            </div>
+                            <span class="{{ 'badge-bull' if 'Interactive' in active_broker else 'badge-neutral' }}">
+                                {{ 'ENRUTADOR ACTIVO' if 'Interactive' in active_broker else 'DISPONIBLE' }}
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Estado Conexión:</span>
+                            <span class="metric-value" style="color: #ffa502;">Modo Simulado / Gateway 🛡️</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Balance Cuenta Paper:</span>
+                            <span class="metric-value">$25,000.00</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Poder de Compra (Margen):</span>
+                            <span class="metric-value">$50,000.00</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Instrumentos:</span>
+                            <span class="metric-value">Acciones, Opciones Multi-leg, Futuros</span>
+                        </div>
+
+                        <!-- Formulario de Credenciales IBKR -->
+                        <div class="credentials-box">
+                            <div style="font-weight: 700; font-size: 12px; margin-bottom: 8px; color: var(--accent-blue); display: flex; justify-content: space-between;">
+                                <span>⚙️ Conexión IBKR Client Portal / TWS</span>
+                                <small style="color: var(--text-muted);">Estándar Wall Street</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Número de Cuenta IBKR:</label>
+                                <input type="text" id="ibkr_account_id" class="form-input" value="{{ broker_creds.ibkr_account_id }}" placeholder="ej. DU1234567">
+                                <span class="form-hint">Las cuentas de Paper Trading en IBKR inician con prefijo 'DU'.</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Gateway API URL o Puerto:</label>
+                                <input type="text" id="ibkr_gateway_url" class="form-input" value="{{ broker_creds.ibkr_gateway_url }}" placeholder="https://localhost:5000/v1/api">
+                                <span class="form-hint">Client Portal Gateway en https://localhost:5000 o TWS API en puerto 7497.</span>
+                            </div>
+                            <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px 12px;" onclick="saveBrokerCredentials('IBKR')">💾 Guardar y Conectar IBKR</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        {% if 'Interactive' not in active_broker %}
+                        <button class="btn" style="width: 100%; padding: 10px;" onclick="selectBroker('IBKR')">⚡ Activar IBKR como Broker Principal</button>
+                        {% else %}
+                        <div style="text-align: center; padding: 8px; background: rgba(0, 168, 255, 0.1); border-radius: 6px; color: var(--accent-blue); font-weight: 600; font-size: 12px;">
+                            ✓ Enrutador Principal Activo en Telegram
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- CARD 3: TRADIER BROKERAGE -->
+                <div class="card" style="border-top: 4px solid {{ '#ffa502' if 'Tradier' in active_broker else '#232b3b' }}; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div class="card-header">
+                            <div>
+                                <div class="ticker-name" style="color: #ffa502;">📈 Tradier Brokerage</div>
+                                <div class="ticker-desc">Especialista en Opciones API | SEC / FINRA</div>
+                            </div>
+                            <span class="{{ 'badge-bull' if 'Tradier' in active_broker else 'badge-neutral' }}">
+                                {{ 'ENRUTADOR ACTIVO' if 'Tradier' in active_broker else 'DISPONIBLE' }}
+                            </span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Estado Conexión:</span>
+                            <span class="metric-value" style="color: #ffa502;">Sandbox / Simulado 🛡️</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Balance Cuenta Demo:</span>
+                            <span class="metric-value">$25,000.00</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Poder de Compra:</span>
+                            <span class="metric-value">$50,000.00</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Instrumentos:</span>
+                            <span class="metric-value">Opciones (Calls, Puts, Spreads) & Acciones</span>
+                        </div>
+
+                        <!-- Formulario de Credenciales Tradier -->
+                        <div class="credentials-box">
+                            <div style="font-weight: 700; font-size: 12px; margin-bottom: 8px; color: var(--accent-blue); display: flex; justify-content: space-between;">
+                                <span>⚙️ Credenciales Tradier API</span>
+                                <small style="color: var(--text-muted);">Sandbox Gratis</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Access Token (Bearer):</label>
+                                <input type="password" id="tradier_access_token" class="form-input" value="{{ broker_creds.tradier_access_token }}" placeholder="Pega tu token de Tradier aquí">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Account ID (Número de Cuenta):</label>
+                                <input type="text" id="tradier_account_id" class="form-input" value="{{ broker_creds.tradier_account_id }}" placeholder="ej. VA12345678 (Sandbox) o 6YA...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Entorno:</label>
+                                <select id="tradier_paper_mode" class="form-select">
+                                    <option value="true" {% if broker_creds.tradier_paper_mode %}selected{% endif %}>Sandbox (Paper Trading - Ilimitado)</option>
+                                    <option value="false" {% if not broker_creds.tradier_paper_mode %}selected{% endif %}>Live Real (Producción)</option>
+                                </select>
+                            </div>
+                            <span class="form-hint">Genera tu Sandbox Token gratis en developer.tradier.com &gt; API Access.</span>
+                            <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px 12px;" onclick="saveBrokerCredentials('TRADIER')">💾 Guardar y Conectar Tradier</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        {% if 'Tradier' not in active_broker %}
+                        <button class="btn" style="width: 100%; padding: 10px;" onclick="selectBroker('TRADIER')">⚡ Activar Tradier como Broker Principal</button>
+                        {% else %}
+                        <div style="text-align: center; padding: 8px; background: rgba(255, 165, 2, 0.1); border-radius: 6px; color: var(--accent-gold); font-weight: 600; font-size: 12px;">
+                            ✓ Enrutador Principal Activo en Telegram
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TOAST ALERT -->
+    <div id="alert-toast">
+        <h4 style="color: var(--accent-gold); margin-bottom: 6px;">🔔 Alerta Institucional Recibida</h4>
+        <p id="toast-text" style="font-size: 13px; color: var(--text-main);"></p>
+    </div>
+
+    <script>
+        let currentSymbol = 'SPY';
+        let tvChart = null;
+        let rsiChart = null;
+        let equityChart = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+
+            if (tabId === 'tab-charts') {
+                setTimeout(loadCurrentSymbol, 100);
+            } else if (tabId === 'tab-backtest') {
+                setTimeout(loadEquityChart, 100);
+            }
+        }
+
+        function loadSymbolChart(symbol) {
+            currentSymbol = symbol;
+            document.querySelectorAll('.btn-ticker').forEach(b => {
+                b.classList.toggle('active', b.innerText === symbol);
+            });
+            loadCurrentSymbol();
+        }
+
+        function loadCurrentSymbol() {
+            const container = document.getElementById('tv-chart-container');
+            const rsiContainer = document.getElementById('tv-rsi-container');
+            const info = document.getElementById('chart-header-info');
+
+            fetch(`/api/chart_data/${currentSymbol}`)
+            .then(res => res.json())
+            .then(data => {
+                const lastCandle = data.candles[data.candles.length - 1];
+                info.innerHTML = `<strong>${data.symbol}</strong> | Último: <strong>$${lastCandle.close}</strong> | O: $${lastCandle.open} | H: $${lastCandle.high} | L: $${lastCandle.low} | Velas M5: ${data.candles.length}`;
+
+                // Verificar si LightweightCharts está disponible en el navegador
+                if (typeof LightweightCharts !== 'undefined') {
+                    renderTradingViewChart(container, rsiContainer, data);
+                } else {
+                    renderFallbackCanvasChart(container, data);
+                }
+            })
+            .catch(err => {
+                info.innerHTML = `<span style="color: var(--accent-red)">Error al cargar cotizaciones: ${err}</span>`;
+            });
+        }
+
+        function renderTradingViewChart(container, rsiContainer, data) {
+            container.innerHTML = '';
+            rsiContainer.innerHTML = '';
+
+            const chartOptions = {
+                layout: { background: { color: '#0d1117' }, textColor: '#8b98ad' },
+                grid: { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#21262d' },
+                rightPriceScale: { borderColor: '#21262d' }
+            };
+
+            // 1. Gráfico Principal (Velas + EMAs + Bollinger)
+            tvChart = LightweightCharts.createChart(container, {
+                ...chartOptions,
+                height: 480
+            });
+
+            // Serie de Velas Japonesas
+            const candleSeries = tvChart.addCandlestickSeries({
+                upColor: '#00d084',
+                downColor: '#ff4757',
+                borderUpColor: '#00d084',
+                borderDownColor: '#ff4757',
+                wickUpColor: '#00d084',
+                wickDownColor: '#ff4757'
+            });
+            candleSeries.setData(data.candles);
+
+            // Volumen
+            const volumeSeries = tvChart.addHistogramSeries({
+                priceFormat: { type: 'volume' },
+                priceScaleId: '',
+                scaleMargins: { top: 0.82, bottom: 0 }
+            });
+            volumeSeries.setData(data.volume);
+
+            // EMA 20 (Cyan)
+            const ema20Series = tvChart.addLineSeries({ color: '#00a8ff', lineWidth: 2, title: 'EMA 20' });
+            ema20Series.setData(data.ema_20);
+
+            // EMA 50 (Naranja)
+            const ema50Series = tvChart.addLineSeries({ color: '#ffa502', lineWidth: 2, title: 'EMA 50' });
+            ema50Series.setData(data.ema_50);
+
+            // EMA 200 (Púrpura Macro)
+            const ema200Series = tvChart.addLineSeries({ color: '#9c88ff', lineWidth: 2.5, title: 'EMA 200' });
+            ema200Series.setData(data.ema_200);
+
+            // Bandas Bollinger (Dashed)
+            if (data.bb_upper && data.bb_upper.length > 0) {
+                const bbUpSeries = tvChart.addLineSeries({ color: 'rgba(255,255,255,0.25)', lineStyle: 2, lineWidth: 1, title: 'BB Superior' });
+                bbUpSeries.setData(data.bb_upper);
+                const bbLowSeries = tvChart.addLineSeries({ color: 'rgba(255,255,255,0.25)', lineStyle: 2, lineWidth: 1, title: 'BB Inferior' });
+                bbLowSeries.setData(data.bb_lower);
+            }
+
+            // 2. Gráfico de RSI
+            rsiChart = LightweightCharts.createChart(rsiContainer, {
+                ...chartOptions,
+                height: 140
+            });
+
+            const rsiSeries = rsiChart.addLineSeries({ color: '#e056fd', lineWidth: 2, title: 'RSI(14)' });
+            rsiSeries.setData(data.rsi);
+
+            // Líneas de referencia 70 y 30
+            rsiSeries.createPriceLine({ price: 70, color: '#ff4757', lineWidth: 1, lineStyle: 2, title: 'Sobrecompra (70)' });
+            rsiSeries.createPriceLine({ price: 30, color: '#00d084', lineWidth: 1, lineStyle: 2, title: 'Sobreventa (30)' });
+
+            tvChart.timeScale().fitContent();
+            rsiChart.timeScale().fitContent();
+        }
+
+        function loadEquityChart() {
+            const container = document.getElementById('equity-chart-container');
+            if (!container) return;
+
+            fetch('/api/equity_data')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.equity_curve || data.equity_curve.length === 0) return;
+                container.innerHTML = '';
+
+                if (typeof LightweightCharts !== 'undefined') {
+                    const chart = LightweightCharts.createChart(container, {
+                        layout: { background: { color: '#0d1117' }, textColor: '#8b98ad' },
+                        grid: { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
+                        timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#21262d' },
+                        rightPriceScale: { borderColor: '#21262d' },
+                        height: 260
+                    });
+
+                    const areaSeries = chart.addAreaSeries({
+                        topColor: 'rgba(0, 208, 132, 0.4)',
+                        bottomColor: 'rgba(0, 208, 132, 0.02)',
+                        lineColor: '#00d084',
+                        lineWidth: 2.5
+                    });
+                    areaSeries.setData(data.equity_curve);
+
+                    // Línea de capital inicial $25,000
+                    areaSeries.createPriceLine({
+                        price: 25000,
+                        color: '#8b98ad',
+                        lineWidth: 1.5,
+                        lineStyle: 2,
+                        title: 'Capital Inicial $25,000'
+                    });
+
+                    chart.timeScale().fitContent();
+                }
+            });
+        }
+
+        function selectBroker(brokerId) {
+            fetch('/api/broker/select', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({broker_id: brokerId})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast("✓ Enrutador principal cambiado a: " + brokerId);
+                    setTimeout(() => location.reload(), 1000);
+                }
+            })
+            .catch(err => {
+                showToast("Error al cambiar broker: " + err);
+            });
+        }
+
+        function saveBrokerCredentials(brokerId) {
+            let payload = { broker_id: brokerId };
+
+            if (brokerId === 'ALPACA') {
+                payload.api_key = document.getElementById('alpaca_api_key').value;
+                payload.secret_key = document.getElementById('alpaca_secret_key').value;
+                payload.paper_mode = document.getElementById('alpaca_paper_mode').value === 'true';
+            } else if (brokerId === 'IBKR') {
+                payload.account_id = document.getElementById('ibkr_account_id').value;
+                payload.gateway_url = document.getElementById('ibkr_gateway_url').value;
+                payload.paper_mode = true;
+            } else if (brokerId === 'TRADIER') {
+                payload.access_token = document.getElementById('tradier_access_token').value;
+                payload.account_id = document.getElementById('tradier_account_id').value;
+                payload.paper_mode = document.getElementById('tradier_paper_mode').value === 'true';
+            }
+
+            showToast("Guardando credenciales de " + brokerId + " y probando conexión...");
+
+            fetch('/api/broker/credentials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    playChime();
+                    showToast(data.message || "✓ Credenciales guardadas exitosamente");
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast("⚠️ " + (data.message || "Error al conectar broker"));
+                }
+            })
+            .catch(err => {
+                showToast("Error en la petición: " + err);
+            });
+        }
+
+        function filterSignals(type) {
+            document.querySelectorAll('#tab-senales .btn-ticker').forEach(b => {
+                b.classList.remove('active');
+                if (type === 'ALL' && b.innerText.includes('Todos')) b.classList.add('active');
+                if (type === 'CALL' && b.innerText.includes('Calls')) b.classList.add('active');
+                if (type === 'PUT' && b.innerText.includes('Puts')) b.classList.add('active');
+            });
+            document.querySelectorAll('.signal-row').forEach(row => {
+                if (type === 'ALL') {
+                    row.style.display = '';
+                } else {
+                    row.style.display = (row.getAttribute('data-type') === type) ? '' : 'none';
+                }
+            });
+        }
+
+        function playChime() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.6);
+            } catch (e) {}
+        }
+
+        function sendTestAlert() {
+            fetch('/api/alerts/test', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                playChime();
+                showToast("Alerta enviada a Telegram con botones interactivos");
+                setTimeout(() => location.reload(), 1500);
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('alert-toast');
+            document.getElementById('toast-text').innerText = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 4000);
+        }
+
+        // Cargar gráfico inicial de SPY al abrir
+        window.addEventListener('DOMContentLoaded', () => {
+            loadCurrentSymbol();
+        });
+    </script>
+</body>
+</html>
