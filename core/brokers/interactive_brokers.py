@@ -44,7 +44,7 @@ class InteractiveBrokers(BaseBroker):
         if host_env:
             target_hosts.insert(0, host_env)
 
-        ports_to_try = [7497, 7496, 4002, 4001]
+        ports_to_try = [4004, 4002, 7497, 7496, 4003, 4001]
         if custom_port_env and custom_port_env.isdigit():
             ports_to_try.insert(0, int(custom_port_env))
 
