@@ -98,15 +98,20 @@ class InteractiveBrokers(BaseBroker):
         connected = self.is_connected()
         status_text = getattr(self, "status_detail", "En Línea (TWS Activo) ✅" if connected else "Modo Simulado 🛡️")
 
+        import os
+        default_equity = float(os.getenv("IBKR_EQUITY", "1000000.0" if connected else "25000.0"))
+        default_cash = float(os.getenv("IBKR_CASH", "1000000.0" if connected else "20000.0"))
+        default_buying_power = float(os.getenv("IBKR_BUYING_POWER", "4000000.0" if connected else "50000.0"))
+
         return {
             "broker": self.name,
             "status": status_text,
             "connected": connected,
             "account_number": self.account_id,
             "currency": "USD",
-            "equity": 25000.0,
-            "cash": 20000.0,
-            "buying_power": 50000.0,
+            "equity": default_equity,
+            "cash": default_cash,
+            "buying_power": default_buying_power,
             "daytrade_count": 0,
             "pdt_status": True,
             "mode": "PAPER TRADING (IBKR)" if self.paper_mode else "LIVE REAL"
