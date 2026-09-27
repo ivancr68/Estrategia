@@ -20,8 +20,9 @@ class AlpacaBroker(BaseBroker):
         paper_mode: bool = True
     ):
         super().__init__(name="Alpaca Markets", paper_mode=paper_mode)
-        self.api_key = api_key or "PKJ4MJOYYRRLM33DWVNL2CFUT5"
-        self.secret_key = secret_key or "3vyygErLE3Q3itKceGobFKa2qCy4sxdvFVEqZtSbyZXS"
+        import os
+        self.api_key = api_key or os.getenv("ALPACA_API_KEY", "PKLYBDE6TEEGYHRGLPFQ2ULQTT")
+        self.secret_key = secret_key or os.getenv("ALPACA_SECRET_KEY", "C5kWhJZFZPKxtuJtRnxF8XQq9SPurxMXNh49epVYx6hV")
         self.base_url = "https://paper-api.alpaca.markets" if paper_mode else "https://api.alpaca.markets"
         self.headers = {
             "APCA-API-KEY-ID": self.api_key,
