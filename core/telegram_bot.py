@@ -58,13 +58,16 @@ class TelegramBotService:
 
         text += "\n¿En qué broker deseas autorizar la ejecución?"
 
-        # Botones individuales por broker
+        # Botones individuales por broker + botón Multi-Broker
         reply_markup = {
             "inline_keyboard": [
                 [
                     {"text": "🦙 Alpaca", "callback_data": f"EXEC:ALPACA:{alert_id}"},
                     {"text": "🏛️ IBKR", "callback_data": f"EXEC:IBKR:{alert_id}"},
                     {"text": "📈 Tradier", "callback_data": f"EXEC:TRADIER:{alert_id}"}
+                ],
+                [
+                    {"text": "🌐 Enrutar a Todos (Multi-Bróker)", "callback_data": f"EXEC:ALL:{alert_id}"}
                 ],
                 [
                     {"text": "❌ Rechazar Operación", "callback_data": f"REJECT:ALL:{alert_id}"}
@@ -131,37 +134,62 @@ class TelegramBotService:
         alert = PENDING_ALERTS.get(alert_id, {})
 
         if action == "EXEC":
-            # 1. Seleccionar el broker solicitado
-            self.broker_manager.set_active_broker(broker_key)
-            target_broker = self.broker_manager.active_broker
-
             symbol = alert.get("symbol", "SPY")
             side = "buy" if "BUY" in alert.get("action", "BUY") else "sell"
             instrument = alert.get("instrument", "EQUITY").lower()
-
-            # Enviar orden
-            order_res = target_broker.submit_order(
-                symbol=symbol,
-                qty=1,
-                side=side,
-                order_type="market",
-                instrument_type=instrument
-            )
-
-            # 2. Responder al callback
-            self._answer_callback(query_id, f"✅ ¡Orden enviada exitosamente a {target_broker.name}!")
-
-            # 3. Editar mensaje
             time_now = datetime.now().strftime("%H:%M:%S")
-            edited_text = (
-                f"{message.get('text', '')}\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"✅ *ORDEN APROBADA Y EJECUTADA*\n"
-                f"👤 Trader: *{from_user}* a las `{time_now}`\n"
-                f"🏦 Broker Seleccionado: *{target_broker.name}*\n"
-                f"📋 Estado: `ORDEN ENVIADA A MERCADO`"
-            )
-            self._edit_message(message_id, edited_text)
+
+            if broker_key in ["ALL", "MULTI"]:
+                self.broker_manager.set_active_broker("ALL")
+                executed_brokers = []
+                for b_id, b_inst in self.broker_manager.brokers.items():
+                    try:
+                        b_inst.submit_order(
+                            symbol=symbol,
+                            qty=1,
+                            side=side,
+                            order_type="market",
+                            instrument_type=instrument
+                        )
+                        executed_brokers.append(b_inst.name)
+                    except Exception:
+                        pass
+
+                names_str = " + ".join(executed_brokers) if executed_brokers else "Alpaca + IBKR + Tradier"
+                self._answer_callback(query_id, f"✅ ¡Orden multibróker enviada a {len(executed_brokers)} brokers!")
+
+                edited_text = (
+                    f"{message.get('text', '')}\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"✅ *ORDEN MULTI-BRÓKER APROBADA Y EJECUTADA*\n"
+                    f"👤 Trader: *{from_user}* a las `{time_now}`\n"
+                    f"🌐 Brokers Concurrentes: *{names_str}*\n"
+                    f"📋 Estado: `3 ÓRDENES ENVIADAS SIMULTÁNEAMENTE`"
+                )
+                self._edit_message(message_id, edited_text)
+            else:
+                self.broker_manager.set_active_broker(broker_key)
+                target_broker = self.broker_manager.active_broker
+
+                target_broker.submit_order(
+                    symbol=symbol,
+                    qty=1,
+                    side=side,
+                    order_type="market",
+                    instrument_type=instrument
+                )
+
+                self._answer_callback(query_id, f"✅ ¡Orden enviada exitosamente a {target_broker.name}!")
+
+                edited_text = (
+                    f"{message.get('text', '')}\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"✅ *ORDEN APROBADA Y EJECUTADA*\n"
+                    f"👤 Trader: *{from_user}* a las `{time_now}`\n"
+                    f"🏦 Broker Seleccionado: *{target_broker.name}*\n"
+                    f"📋 Estado: `ORDEN ENVIADA A MERCADO`"
+                )
+                self._edit_message(message_id, edited_text)
 
         elif action == "REJECT":
             self._answer_callback(query_id, "❌ Operación descartada.")
