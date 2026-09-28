@@ -29,7 +29,7 @@ class BrokerManager:
             ),
             "IBKR": InteractiveBrokers(
                 gateway_url=os.getenv("IBKR_GATEWAY_URL", getattr(config, "IBKR_GATEWAY_URL", "https://localhost:5000/v1/api")),
-                account_id=os.getenv("IBKR_ACCOUNT_ID", getattr(config, "IBKR_ACCOUNT_ID", "DUR214667")),
+                account_id=os.getenv("IBKR_ACCOUNT_ID", getattr(config, "IBKR_ACCOUNT_ID", "DUR220661")),
                 paper_mode=True
             ),
             "TRADIER": TradierBroker(

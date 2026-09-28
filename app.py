@@ -104,7 +104,7 @@ def dashboard():
         "alpaca_api_key": os.getenv("ALPACA_API_KEY", getattr(config, "ALPACA_API_KEY", "PKLYBDE6TEEGYHRGLPFQ2ULQTT")),
         "alpaca_secret_key": os.getenv("ALPACA_SECRET_KEY", getattr(config, "ALPACA_SECRET_KEY", "C5kWhJZFZPKxtuJtRnxF8XQq9SPurxMXNh49epVYx6hV")),
         "alpaca_paper_mode": str(os.getenv("ALPACA_PAPER_MODE", getattr(config, "ALPACA_PAPER_MODE", True))).lower() == "true",
-        "ibkr_account_id": os.getenv("IBKR_ACCOUNT_ID", getattr(config, "IBKR_ACCOUNT_ID", "DUR214667")),
+        "ibkr_account_id": os.getenv("IBKR_ACCOUNT_ID", getattr(config, "IBKR_ACCOUNT_ID", "DUR220661")),
         "ibkr_gateway_url": os.getenv("IBKR_GATEWAY_URL") or (f"{os.getenv('IBKR_HOST')}:{os.getenv('IBKR_PORT', '4004')}" if os.getenv("IBKR_HOST") else getattr(config, "IBKR_GATEWAY_URL", "https://localhost:5000/v1/api")),
         "tradier_access_token": os.getenv("TRADIER_ACCESS_TOKEN", getattr(config, "TRADIER_ACCESS_TOKEN", "")),
         "tradier_account_id": os.getenv("TRADIER_ACCOUNT_ID", getattr(config, "TRADIER_ACCOUNT_ID", "VA12345678")),
