@@ -1157,8 +1157,24 @@
                 if (!data.equity_curve || data.equity_curve.length === 0) return;
                 container.innerHTML = '';
 
+                // Garantizar tiempos estrictamente ascendentes y únicos para LightweightCharts
+                let cleanData = [];
+                let lastT = 0;
+                let sorted = [...data.equity_curve].sort((a, b) => a.time - b.time);
+                for (let pt of sorted) {
+                    let t = Number(pt.time);
+                    if (t <= lastT) {
+                        t = lastT + 1;
+                    }
+                    lastT = t;
+                    cleanData.push({ time: t, value: Number(pt.value) });
+                }
+
                 if (typeof LightweightCharts !== 'undefined') {
-                    const chart = LightweightCharts.createChart(container, {
+                    if (equityChart) {
+                        try { equityChart.remove(); } catch(e){}
+                    }
+                    equityChart = LightweightCharts.createChart(container, {
                         layout: { background: { color: '#0d1117' }, textColor: '#8b98ad' },
                         grid: { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
                         timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#21262d' },
@@ -1166,13 +1182,13 @@
                         height: 260
                     });
 
-                    const areaSeries = chart.addAreaSeries({
+                    const areaSeries = equityChart.addAreaSeries({
                         topColor: 'rgba(0, 208, 132, 0.4)',
                         bottomColor: 'rgba(0, 208, 132, 0.02)',
                         lineColor: '#00d084',
                         lineWidth: 2.5
                     });
-                    areaSeries.setData(data.equity_curve);
+                    areaSeries.setData(cleanData);
 
                     // Línea de capital inicial $25,000
                     areaSeries.createPriceLine({
@@ -1183,8 +1199,11 @@
                         title: 'Capital Inicial $25,000'
                     });
 
-                    chart.timeScale().fitContent();
+                    equityChart.timeScale().fitContent();
                 }
+            })
+            .catch(err => {
+                console.error("Error al cargar equity chart:", err);
             });
         }
 

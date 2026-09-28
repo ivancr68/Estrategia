@@ -195,8 +195,13 @@ def api_equity_data():
 
     curve = []
     if not df_equity.empty:
-        for _, row in df_equity.iterrows():
+        df_sorted = df_equity.sort_values(by="time").reset_index(drop=True)
+        last_t = None
+        for _, row in df_sorted.iterrows():
             t = int(row["time"].timestamp())
+            if last_t is not None and t <= last_t:
+                t = last_t + 1  # Evita colisiones de segundo para que LightweightCharts nunca falle
+            last_t = t
             curve.append({"time": t, "value": round(float(row["equity"]), 2)})
 
     return jsonify({"equity_curve": curve})

@@ -152,10 +152,18 @@ class NYSEBacktester:
                 "balance": round(balance, 2)
             })
 
-            equity_curve.append({"time": exit_time, "equity": round(balance, 2)})
-
         df_trades = pd.DataFrame(completed_trades)
-        df_equity = pd.DataFrame(equity_curve)
+        if not df_trades.empty:
+            df_trades = df_trades.sort_values(by="exit_time").reset_index(drop=True)
+            running_balance = self.initial_capital
+            sorted_equity = []
+            for _, tr in df_trades.iterrows():
+                running_balance += tr["net_pnl"]
+                sorted_equity.append({"time": tr["exit_time"], "equity": round(running_balance, 2)})
+            df_equity = pd.DataFrame(sorted_equity)
+            balance = running_balance
+        else:
+            df_equity = pd.DataFrame(equity_curve)
 
         # Cálculo de métricas institucionales consolidadas
         metrics = {}
