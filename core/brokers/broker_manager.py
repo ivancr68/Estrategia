@@ -53,8 +53,12 @@ class BrokerManager:
 
     @property
     def active_broker(self) -> BaseBroker:
-        """Retorna un broker representativo de los activos (preferencia IBKR > ALPACA > TRADIER)."""
-        for name in ["IBKR", "ALPACA", "TRADIER"]:
+        """Retorna un broker representativo de los activos (preferencia ALPACA > IBKR > TRADIER)."""
+        if len(self.active_brokers_set) == 1:
+            name = next(iter(self.active_brokers_set))
+            if name in self.brokers:
+                return self.brokers[name]
+        for name in ["ALPACA", "IBKR", "TRADIER"]:
             if name in self.active_brokers_set and name in self.brokers:
                 return self.brokers[name]
         return self.brokers["ALPACA"]
@@ -99,7 +103,7 @@ class BrokerManager:
             self.active_brokers_set = {"ALPACA", "IBKR", "TRADIER"}
             return True
         if name_clean in self.brokers:
-            self.active_brokers_set.add(name_clean)
+            self.active_brokers_set = {name_clean}
             return True
         return False
 

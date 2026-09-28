@@ -181,7 +181,7 @@ class TelegramBotService:
                             print(f"[TelegramBot] Error ejecutando en {b_id}: {e}")
 
                     names_str = " + ".join(executed_brokers) if executed_brokers else "Alpaca + IBKR + Tradier"
-                    self._answer_callback(query_id, f"✅ ¡Orden multibróker enviada a {len(executed_brokers)} brokers!")
+                    self._answer_callback(query_id, f"Orden multibróker enviada a {len(executed_brokers)} brokers")
 
                     edited_text = (
                         f"{escaped_base}\n\n"
@@ -193,8 +193,9 @@ class TelegramBotService:
                     )
                     self._edit_message(message_id, edited_text)
                 else:
-                    self.broker_manager.set_active_broker(broker_key)
-                    target_broker = self.broker_manager.active_broker
+                    target_broker = self.broker_manager.brokers.get(broker_key.upper())
+                    if not target_broker:
+                        target_broker = self.broker_manager.brokers.get("ALPACA")
 
                     order_res = target_broker.submit_order(
                         symbol=symbol,
@@ -205,7 +206,7 @@ class TelegramBotService:
                     )
                     print(f"[TelegramBot] Resultado orden {target_broker.name}: {order_res}")
 
-                    self._answer_callback(query_id, f"✅ ¡Orden enviada exitosamente a {target_broker.name}!")
+                    self._answer_callback(query_id, f"Orden enviada a {target_broker.name}")
 
                     edited_text = (
                         f"{escaped_base}\n\n"
@@ -218,7 +219,7 @@ class TelegramBotService:
                     self._edit_message(message_id, edited_text)
 
             elif action == "REJECT":
-                self._answer_callback(query_id, "❌ Operación descartada.")
+                self._answer_callback(query_id, "Operación descartada")
                 edited_text = (
                     f"{escaped_base}\n\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
