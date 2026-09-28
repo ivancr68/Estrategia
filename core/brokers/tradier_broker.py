@@ -55,15 +55,23 @@ class TradierBroker(BaseBroker):
                 r = requests.get(f"{self.base_url}/accounts/{self.account_id}/balances", headers=self.headers, timeout=3)
                 if r.status_code == 200:
                     data = r.json().get("balances", {})
+                    equity = float(data.get("total_equity", data.get("equity", 0.0)))
+                    total_cash = float(data.get("total_cash", 0.0))
+                    # En cuentas cash, buying power es el cash disponible; en margin se toma de margin
+                    if "margin" in data:
+                        bp = float(data.get("margin", {}).get("stock_buying_power", total_cash))
+                    else:
+                        bp = float(data.get("cash", {}).get("cash_available", total_cash))
+
                     return {
                         "broker": self.name,
                         "status": "En Línea (Tradier Cloud API Oficial) ✅",
                         "connected": True,
                         "account_number": self.account_id,
                         "currency": "USD",
-                        "equity": float(data.get("total_equity", 25000.0)),
-                        "cash": float(data.get("total_cash", 25000.0)),
-                        "buying_power": float(data.get("margin", {}).get("stock_buying_power", 50000.0)),
+                        "equity": equity,
+                        "cash": total_cash,
+                        "buying_power": bp,
                         "daytrade_count": 0,
                         "pdt_status": True,
                         "mode": "SANDBOX (TRADIER OFICIAL)" if self.paper_mode else "LIVE REAL"
