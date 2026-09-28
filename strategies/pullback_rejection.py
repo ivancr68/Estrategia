@@ -19,7 +19,7 @@ class PullbackRejectionStrategy(BaseNYSEStrategy):
     Estrategia de retroceso y rechazo en soporte dinámico (EMA 50) para continuación tendencial.
     """
 
-    def __init__(self, symbols: List[str] = None, atr_mult_sl: float = 1.3, rr_ratio: float = 2.5):
+    def __init__(self, symbols: List[str] = None, atr_mult_sl: float = 2.2, rr_ratio: float = 2.0):
         super().__init__(name="EMA50_Pullback_Rejection", symbols=symbols or ["SPY", "QQQ", "DIA"])
         self.atr_mult_sl = atr_mult_sl
         self.rr_ratio = rr_ratio

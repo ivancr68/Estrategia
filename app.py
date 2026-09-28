@@ -80,8 +80,8 @@ def dashboard():
     # Escanear señales (sin disparar alertas masivas históricas al recargar la web)
     signals = engine.scan_market(market_data, mode="HYBRID", trigger_alerts=False)
 
-    # Backtesting institucional
-    df_trades, df_equity, metrics = backtester.run(market_data, signals)
+    # Backtesting institucional (Filtrado por alta conviccion >= 80% con Break-Even)
+    df_trades, df_equity, metrics = backtester.run(market_data, signals, min_conviction=config.MIN_CONFLUENCE_SCORE)
     recent_trades = df_trades.tail(12).to_dict(orient="records") if not df_trades.empty else []
 
     # Asignación de portafolio
@@ -191,7 +191,7 @@ def api_chart_data(symbol):
 def api_equity_data():
     market_data = {sym: provider.get_historical_bars(sym, days=30, interval_mins=5) for sym in config.ETFS_PRINCIPALES}
     signals = engine.scan_market(market_data, mode="HYBRID", trigger_alerts=False)
-    _, df_equity, _ = backtester.run(market_data, signals)
+    _, df_equity, _ = backtester.run(market_data, signals, min_conviction=config.MIN_CONFLUENCE_SCORE)
 
     curve = []
     if not df_equity.empty:

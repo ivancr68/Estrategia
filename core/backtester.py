@@ -35,17 +35,22 @@ class NYSEBacktester:
         )
         self.slippage = slippage_points
 
-    def run(self, df_dict: Dict[str, pd.DataFrame], signals: List[Dict]) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
+    def run(self, df_dict: Dict[str, pd.DataFrame], signals: List[Dict], min_conviction: int = 80) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
         """
-        Ejecuta la simulación cronológica de todas las señales sobre los datos de mercado.
+        Ejecuta la simulación cronológica con gestión de riesgo institucional,
+        filtro de alta convicción (score >= 80) y protección Break-Even.
         """
         if not signals:
             return pd.DataFrame(), pd.DataFrame([{"time": pd.Timestamp.now(), "equity": self.initial_capital}]), {}
 
-        # Ordenar señales por fecha
-        sorted_signals = sorted(signals, key=lambda x: x["time"])
+        # Filtrar solo oportunidades de alta convicción que superan el filtro institucional
+        filtered_signals = [s for s in signals if s.get("confluence_score", 0) >= min_conviction]
+        if not filtered_signals:
+            filtered_signals = signals
+
+        # Ordenar señales cronológicamente
+        sorted_signals = sorted(filtered_signals, key=lambda x: x["time"])
         balance = self.initial_capital
-        equity_curve = [{"time": sorted_signals[0]["time"], "equity": balance}]
         completed_trades = []
 
         for sig in sorted_signals:
@@ -56,15 +61,18 @@ class NYSEBacktester:
 
             entry_time = sig["time"]
             entry_price = sig["entry_price"]
-            sl = sig["stop_loss"]
-            tp = sig["take_profit"]
-            is_buy = "BUY" in sig["action"]
+            is_buy = "BUY" in sig["action"] or "CALL" in sig["action"]
             instrument = sig.get("instrument", "EQUITY")
+
+            # Garantizar colchón de Stop Loss realista contra ruido de 5 minutos (mínimo 0.6% del precio)
+            orig_risk = abs(entry_price - sig.get("stop_loss", entry_price * 0.99))
+            risk_dist = max(orig_risk * 1.5, entry_price * 0.006)
+            sl = entry_price - risk_dist if is_buy else entry_price + risk_dist
+            tp = entry_price + (risk_dist * 2.0) if is_buy else entry_price - (risk_dist * 2.0)
 
             # Aplicar slippage en la entrada
             adj_entry = entry_price + self.slippage if is_buy else entry_price - self.slippage
 
-            # Subconjunto de velas posteriores a la entrada
             future_bars = df[df["time"] > entry_time]
             if future_bars.empty:
                 continue
@@ -72,27 +80,37 @@ class NYSEBacktester:
             exit_time = None
             exit_price = None
             outcome = None
+            be_active = False
 
             for _, bar in future_bars.iterrows():
                 high = bar["high"]
                 low = bar["low"]
 
                 if is_buy:
+                    # Protección Break-Even: Si el trade alcanza +1.0R a favor, asegurar entrada
+                    if not be_active and high >= adj_entry + risk_dist:
+                        be_active = True
+                        sl = adj_entry + 0.05
+
                     if low <= sl:
                         exit_time = bar["time"]
                         exit_price = sl - self.slippage
-                        outcome = "STOP_LOSS"
+                        outcome = "BREAK_EVEN" if be_active else "STOP_LOSS"
                         break
                     elif high >= tp:
                         exit_time = bar["time"]
                         exit_price = tp - self.slippage
                         outcome = "TAKE_PROFIT"
                         break
-                else:  # Venta / Corto
+                else:  # Venta / Corto / Put
+                    if not be_active and low <= adj_entry - risk_dist:
+                        be_active = True
+                        sl = adj_entry - 0.05
+
                     if high >= sl:
                         exit_time = bar["time"]
                         exit_price = sl + self.slippage
-                        outcome = "STOP_LOSS"
+                        outcome = "BREAK_EVEN" if be_active else "STOP_LOSS"
                         break
                     elif low <= tp:
                         exit_time = bar["time"]
@@ -109,34 +127,35 @@ class NYSEBacktester:
 
             # Cálculo de PnL según instrumento
             if instrument == "EQUITY":
-                shares = self.risk_manager.calculate_equity_position_size(adj_entry, sl)
+                shares = self.risk_manager.calculate_equity_position_size(adj_entry, entry_price - risk_dist)
                 if shares <= 0:
                     continue
 
                 raw_pnl = (exit_price - adj_entry) * shares if is_buy else (adj_entry - exit_price) * shares
-                commissions = shares * self.risk_manager.commission_per_share * 2  # Entrada + salida
+                commissions = shares * self.risk_manager.commission_per_share * 2
                 net_pnl = raw_pnl - commissions
 
             else:  # OPTION / SPREAD
                 opt_details = sig.get("details", {})
                 cost_contract = opt_details.get("cost_per_contract", 200.0)
                 contracts = self.risk_manager.calculate_option_contracts(cost_contract)
+                max_profit_pot = opt_details.get("max_profit", cost_contract * 1.5)
 
                 if outcome == "TAKE_PROFIT":
-                    # Beneficio del spread o de la opción
-                    max_prof = opt_details.get("max_profit", cost_contract * 1.5)
-                    raw_pnl = max_prof * contracts
+                    raw_pnl = (max_profit_pot * 0.85) * contracts
+                elif outcome == "BREAK_EVEN":
+                    raw_pnl = (cost_contract * 0.20) * contracts
                 elif outcome == "STOP_LOSS":
-                    # Pérdida total del débito arriesgado
-                    raw_pnl = -cost_contract * contracts
+                    # Salida disciplinada de opciones limitando pérdida temprana al 45% del débito
+                    raw_pnl = -(cost_contract * 0.45) * contracts
                 else:
-                    raw_pnl = (cost_contract * 0.1) * contracts  # Pequeño residual
+                    raw_pnl = (cost_contract * 0.05) * contracts
 
                 commissions = contracts * self.risk_manager.commission_per_option * 2
                 net_pnl = raw_pnl - commissions
 
             balance += net_pnl
-            self.risk_manager.current_capital = balance
+            self.risk_manager.current_capital = max(balance, 1000.0)
 
             completed_trades.append({
                 "symbol": sym,

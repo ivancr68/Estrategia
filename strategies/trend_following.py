@@ -21,7 +21,7 @@ class TrendFollowingStrategy(BaseNYSEStrategy):
     Estrategia de seguimiento de tendencia institucional con Stop Loss dinámico por ATR.
     """
 
-    def __init__(self, symbols: List[str] = None, atr_mult_sl: float = 1.5, rr_ratio: float = 2.0):
+    def __init__(self, symbols: List[str] = None, atr_mult_sl: float = 2.2, rr_ratio: float = 2.0):
         super().__init__(name="TrendFollowing_Momentum", symbols=symbols or ["SPY", "QQQ"])
         self.atr_mult_sl = atr_mult_sl
         self.rr_ratio = rr_ratio

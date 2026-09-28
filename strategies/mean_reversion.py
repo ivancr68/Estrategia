@@ -24,7 +24,7 @@ class MeanReversionStrategy(BaseNYSEStrategy):
         symbols: List[str] = None,
         rsi_oversold: float = 30.0,
         rsi_overbought: float = 70.0,
-        atr_mult_sl: float = 1.5
+        atr_mult_sl: float = 2.2
     ):
         super().__init__(name="MeanReversion_RSI_BB", symbols=symbols or ["IWM", "DIA"])
         self.rsi_oversold = rsi_oversold
