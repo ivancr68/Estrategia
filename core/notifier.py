@@ -58,15 +58,16 @@ class AlertDispatcher:
         self.recent_alerts = self.recent_alerts[:50]
         self._save_alerts()
 
+        tg_ok = True
         # 1. Enviar a Telegram con Botones Interactivos [Aceptar] / [Rechazar]
         if self.telegram_enabled:
-            self.telegram_bot.send_interactive_alert(alert_item)
+            tg_ok = self.telegram_bot.send_interactive_alert(alert_item)
 
         # 2. Enviar a Webhook si aplica
         if self.webhook_url:
             self._send_webhook(alert_item)
 
-        return True
+        return tg_ok
 
     def _send_webhook(self, alert: Dict) -> bool:
         try:

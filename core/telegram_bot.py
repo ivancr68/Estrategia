@@ -38,23 +38,37 @@ class TelegramBotService:
         alert_id = alert.get("id", f"ALT-{int(time.time())}")
         PENDING_ALERTS[alert_id] = alert
 
-        action_emoji = "🟢 COMPRA" if "BUY" in alert["action"] else "🔴 VENTA"
+        action_emoji = "🟢 COMPRA" if "BUY" in alert.get("action", "") else "🔴 VENTA"
+        import html
+        sym = html.escape(str(alert.get("symbol", "")))
+        action = html.escape(str(alert.get("action", "")))
+        inst = html.escape(str(alert.get("instrument", "EQUITY")))
+        strat = html.escape(str(alert.get("strategy", "Multi-Strategy")))
+        score = alert.get("confluence_score", 85)
+        entry = alert.get("entry_price", 0.0)
+        sl = alert.get("stop_loss", 0.0)
+        tp = alert.get("take_profit", 0.0)
+        rationale = html.escape(str(alert.get("rationale", "Alta confluencia de filtros")))
+
         text = (
-            f"🏛️ *NUEVA OPORTUNIDAD CUANTITATIVA (NYSE)*\n\n"
-            f"📌 *Símbolo:* `{alert['symbol']}`\n"
-            f"⚡ *Acción:* {action_emoji} ({alert.get('instrument', 'EQUITY')})\n"
-            f"🎯 *Estrategia:* {alert.get('strategy', 'Multi-Strategy')}\n"
-            f"⭐ *Convicción Institucional:* `{alert.get('confluence_score', 85)}%`\n\n"
-            f"💵 *Precio Entrada:* `${alert['entry_price']}`\n"
-            f"🛑 *Stop Loss:* `${alert['stop_loss']}`\n"
-            f"🎯 *Take Profit:* `${alert['take_profit']}`\n"
-            f"📊 *Motivo:* _{alert.get('rationale', 'Alta confluencia de filtros')}_\n"
+            f"🏛️ <b>NUEVA OPORTUNIDAD CUANTITATIVA (NYSE)</b>\n\n"
+            f"📌 <b>Símbolo:</b> <code>{sym}</code>\n"
+            f"⚡ <b>Acción:</b> {action_emoji} <b>{action}</b> ({inst})\n"
+            f"🎯 <b>Estrategia:</b> {strat}\n"
+            f"⭐ <b>Convicción Institucional:</b> <code>{score}%</code>\n\n"
+            f"💵 <b>Precio Entrada:</b> ${entry:.2f}\n"
+            f"🛑 <b>Stop Loss:</b> ${sl:.2f}\n"
+            f"🎯 <b>Take Profit:</b> ${tp:.2f}\n"
+            f"📊 <b>Motivo:</b> <i>{rationale}</i>\n"
         )
 
         opt = alert.get("option_details") or alert.get("details")
         if opt:
-            text += f"\n💡 *Opción:* `{opt.get('instruction', 'N/A')}`\n"
-            text += f"💰 *Riesgo:* `${opt.get('cost_per_contract', 0)}` | *Max Beneficio:* `${opt.get('max_profit', 0)}`\n"
+            instr = html.escape(str(opt.get("instruction", "N/A")))
+            cost = opt.get("cost_per_contract", 0)
+            profit = opt.get("max_profit", 0)
+            text += f"\n💡 <b>Opción:</b> <code>{instr}</code>\n"
+            text += f"💰 <b>Riesgo:</b> ${cost:.2f} | <b>Max Beneficio:</b> ${profit:.2f}\n"
 
         text += "\n¿En qué broker deseas autorizar la ejecución?"
 
@@ -80,11 +94,14 @@ class TelegramBotService:
             r = requests.post(url, json={
                 "chat_id": self.chat_id,
                 "text": text,
-                "parse_mode": "Markdown",
+                "parse_mode": "HTML",
                 "reply_markup": reply_markup
             }, timeout=6)
+            if r.status_code != 200:
+                print(f"[TelegramBot] Error al enviar alerta: {r.status_code} - {r.text}")
             return r.status_code == 200
-        except Exception:
+        except Exception as e:
+            print(f"[TelegramBot] Excepción al enviar alerta: {e}")
             return False
 
     def start_listening(self):
@@ -159,12 +176,12 @@ class TelegramBotService:
                 self._answer_callback(query_id, f"✅ ¡Orden multibróker enviada a {len(executed_brokers)} brokers!")
 
                 edited_text = (
-                    f"{message.get('text', '')}\n\n"
+                    f"{html.escape(message.get('text', ''))}\n\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"✅ *ORDEN MULTI-BRÓKER APROBADA Y EJECUTADA*\n"
-                    f"👤 Trader: *{from_user}* a las `{time_now}`\n"
-                    f"🌐 Brokers Concurrentes: *{names_str}*\n"
-                    f"📋 Estado: `3 ÓRDENES ENVIADAS SIMULTÁNEAMENTE`"
+                    f"✅ <b>ORDEN MULTI-BRÓKER APROBADA Y EJECUTADA</b>\n"
+                    f"👤 Trader: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
+                    f"🌐 Brokers Concurrentes: <b>{html.escape(names_str)}</b>\n"
+                    f"📋 Estado: <code>3 ÓRDENES ENVIADAS SIMULTÁNEAMENTE</code>"
                 )
                 self._edit_message(message_id, edited_text)
             else:
@@ -182,12 +199,12 @@ class TelegramBotService:
                 self._answer_callback(query_id, f"✅ ¡Orden enviada exitosamente a {target_broker.name}!")
 
                 edited_text = (
-                    f"{message.get('text', '')}\n\n"
+                    f"{html.escape(message.get('text', ''))}\n\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"✅ *ORDEN APROBADA Y EJECUTADA*\n"
-                    f"👤 Trader: *{from_user}* a las `{time_now}`\n"
-                    f"🏦 Broker Seleccionado: *{target_broker.name}*\n"
-                    f"📋 Estado: `ORDEN ENVIADA A MERCADO`"
+                    f"✅ <b>ORDEN APROBADA Y EJECUTADA</b>\n"
+                    f"👤 Trader: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
+                    f"🏦 Broker Seleccionado: <b>{html.escape(target_broker.name)}</b>\n"
+                    f"📋 Estado: <code>ORDEN ENVIADA A MERCADO</code>"
                 )
                 self._edit_message(message_id, edited_text)
 
@@ -195,11 +212,11 @@ class TelegramBotService:
             self._answer_callback(query_id, "❌ Operación descartada.")
             time_now = datetime.now().strftime("%H:%M:%S")
             edited_text = (
-                f"{message.get('text', '')}\n\n"
+                f"{html.escape(message.get('text', ''))}\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"❌ *OPERACIÓN DESCARTADA*\n"
-                f"👤 Decisión por: *{from_user}* a las `{time_now}`\n"
-                f"🚫 Estado: `NO EJECUTADA EN NINGÚN BROKER`"
+                f"❌ <b>OPERACIÓN DESCARTADA</b>\n"
+                f"👤 Decisión por: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
+                f"🚫 Estado: <code>NO EJECUTADA EN NINGÚN BROKER</code>"
             )
             self._edit_message(message_id, edited_text)
 
@@ -217,7 +234,7 @@ class TelegramBotService:
                 "chat_id": self.chat_id,
                 "message_id": message_id,
                 "text": new_text,
-                "parse_mode": "Markdown",
+                "parse_mode": "HTML",
                 "reply_markup": {"inline_keyboard": []}
             }, timeout=4)
         except Exception:
