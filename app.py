@@ -16,6 +16,7 @@ from core.backtester import NYSEBacktester
 from core.portfolio import PortfolioAllocator
 from core.brokers.broker_manager import BrokerManager
 from core.notifier import dispatcher
+from core.scanner import LiveMarketScanner
 from indicators.trend import add_moving_averages
 from indicators.momentum import add_rsi
 from indicators.volatility import add_atr, add_bollinger_bands
@@ -30,6 +31,7 @@ allocator = PortfolioAllocator(symbols=config.ETFS_PRINCIPALES)
 backtester = NYSEBacktester(initial_capital=config.CAPITAL_INICIAL)
 broker_manager = BrokerManager(default_broker="ALPACA")
 dispatcher.telegram_bot.broker_manager = broker_manager
+live_scanner = LiveMarketScanner(check_interval_seconds=60)
 
 ETF_NAMES = {
     "SPY": "S&P 500 Index ETF (Mercado General)",
@@ -307,14 +309,27 @@ def api_scan():
     return jsonify({"total_signals": len(signals), "signals": signals})
 
 
+@app.route("/api/scanner/status")
+def api_scanner_status():
+    return jsonify({
+        "running": live_scanner.is_running,
+        "symbols": config.ETFS_PRINCIPALES,
+        "dispatched_count": len(live_scanner.dispatched_keys),
+        "check_interval_seconds": live_scanner.interval
+    })
+
+
 if __name__ == "__main__":
     print("\n" + "=" * 55)
     print("   INICIANDO TERMINAL DE TRADING CUANTITATIVO NYSE")
     print("   Brokers: Alpaca, Interactive Brokers (IBKR), Tradier")
     print("   Telegram Bot: @IvanAlgoQuantBot")
     print("   Panel disponible en: http://localhost:5050")
+    print("   Escaner en Vivo: Activo (Escaneo cada 60s)")
     print("=" * 55 + "\n")
 
     port = int(os.getenv("PORT", 5050))
     dispatcher.telegram_bot.start_listening()
+    live_scanner.start()
     app.run(host="0.0.0.0", port=port, debug=False)
+
