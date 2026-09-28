@@ -6,8 +6,10 @@ Servicio Interactivo de Telegram Bot Multibróker:
 - Actualiza el mensaje en el chat confirmando la acción tomada y el broker asignado.
 """
 
+import html
 import threading
 import time
+import traceback
 from datetime import datetime, timezone
 from typing import Dict, Optional
 import requests
@@ -39,7 +41,6 @@ class TelegramBotService:
         PENDING_ALERTS[alert_id] = alert
 
         action_emoji = "🟢 COMPRA" if "BUY" in alert.get("action", "") else "🔴 VENTA"
-        import html
         sym = html.escape(str(alert.get("symbol", "")))
         action = html.escape(str(alert.get("action", "")))
         inst = html.escape(str(alert.get("instrument", "EQUITY")))
@@ -72,7 +73,6 @@ class TelegramBotService:
 
         text += "\n¿En qué broker deseas autorizar la ejecución?"
 
-        # Botones individuales por broker + botón Multi-Broker
         reply_markup = {
             "inline_keyboard": [
                 [
@@ -110,7 +110,7 @@ class TelegramBotService:
             return
 
         self.running = True
-        self.thread = threading.Thread(target=self._polling_loop, daemon=True)
+        self.thread = threading.Thread(target=self._polling_loop, daemon=True, name="TelegramPollingThread")
         self.thread.start()
         print("[TelegramBot] Hilo de escucha multibróker iniciado en segundo plano.")
 
@@ -130,95 +130,107 @@ class TelegramBotService:
                         self.last_update_id = update["update_id"]
                         if "callback_query" in update:
                             self._handle_callback(update["callback_query"])
-            except Exception:
+                else:
+                    time.sleep(2)
+            except Exception as e:
                 time.sleep(2)
             time.sleep(1)
 
     def _handle_callback(self, query: Dict):
-        query_id = query["id"]
-        data_str = query.get("data", "")
-        message = query.get("message", {})
-        message_id = message.get("message_id")
-        from_user = query.get("from", {}).get("first_name", "Usuario")
+        try:
+            query_id = query["id"]
+            data_str = query.get("data", "")
+            message = query.get("message", {})
+            message_id = message.get("message_id")
+            from_user = query.get("from", {}).get("first_name", "Usuario")
 
-        parts = data_str.split(":")
-        if len(parts) < 3:
-            return
+            parts = data_str.split(":")
+            if len(parts) < 3:
+                return
 
-        action = parts[0]
-        broker_key = parts[1]
-        alert_id = parts[2]
-        alert = PENDING_ALERTS.get(alert_id, {})
+            action = parts[0]
+            broker_key = parts[1]
+            alert_id = parts[2]
+            alert = PENDING_ALERTS.get(alert_id, {})
 
-        if action == "EXEC":
-            symbol = alert.get("symbol", "SPY")
-            side = "buy" if "BUY" in alert.get("action", "BUY") else "sell"
-            instrument = alert.get("instrument", "EQUITY").lower()
+            base_text = message.get("text", "")
+            if not base_text:
+                base_text = f"Oportunidad NYSE - {alert.get('symbol', 'SPY')}"
+            escaped_base = html.escape(base_text)
             time_now = datetime.now().strftime("%H:%M:%S")
 
-            if broker_key in ["ALL", "MULTI"]:
-                self.broker_manager.set_active_broker("ALL")
-                executed_brokers = []
-                for b_id, b_inst in self.broker_manager.brokers.items():
-                    try:
-                        b_inst.submit_order(
-                            symbol=symbol,
-                            qty=1,
-                            side=side,
-                            order_type="market",
-                            instrument_type=instrument
-                        )
-                        executed_brokers.append(b_inst.name)
-                    except Exception:
-                        pass
+            if action == "EXEC":
+                symbol = alert.get("symbol", "SPY")
+                side = "buy" if "BUY" in alert.get("action", "BUY") else "sell"
+                instrument = alert.get("instrument", "EQUITY").lower()
 
-                names_str = " + ".join(executed_brokers) if executed_brokers else "Alpaca + IBKR + Tradier"
-                self._answer_callback(query_id, f"✅ ¡Orden multibróker enviada a {len(executed_brokers)} brokers!")
+                if broker_key in ["ALL", "MULTI"]:
+                    self.broker_manager.set_active_broker("ALL")
+                    executed_brokers = []
+                    for b_id, b_inst in self.broker_manager.brokers.items():
+                        try:
+                            b_inst.submit_order(
+                                symbol=symbol,
+                                qty=1,
+                                side=side,
+                                order_type="market",
+                                instrument_type=instrument
+                            )
+                            executed_brokers.append(b_inst.name)
+                        except Exception as e:
+                            print(f"[TelegramBot] Error ejecutando en {b_id}: {e}")
 
+                    names_str = " + ".join(executed_brokers) if executed_brokers else "Alpaca + IBKR + Tradier"
+                    self._answer_callback(query_id, f"✅ ¡Orden multibróker enviada a {len(executed_brokers)} brokers!")
+
+                    edited_text = (
+                        f"{escaped_base}\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"✅ <b>ORDEN MULTI-BRÓKER APROBADA Y EJECUTADA</b>\n"
+                        f"👤 Trader: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
+                        f"🌐 Brokers Concurrentes: <b>{html.escape(names_str)}</b>\n"
+                        f"📋 Estado: <code>ÓRDENES ENVIADAS SIMULTÁNEAMENTE</code>"
+                    )
+                    self._edit_message(message_id, edited_text)
+                else:
+                    self.broker_manager.set_active_broker(broker_key)
+                    target_broker = self.broker_manager.active_broker
+
+                    order_res = target_broker.submit_order(
+                        symbol=symbol,
+                        qty=1,
+                        side=side,
+                        order_type="market",
+                        instrument_type=instrument
+                    )
+                    print(f"[TelegramBot] Resultado orden {target_broker.name}: {order_res}")
+
+                    self._answer_callback(query_id, f"✅ ¡Orden enviada exitosamente a {target_broker.name}!")
+
+                    edited_text = (
+                        f"{escaped_base}\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"✅ <b>ORDEN APROBADA Y EJECUTADA</b>\n"
+                        f"👤 Trader: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
+                        f"🏦 Broker Seleccionado: <b>{html.escape(target_broker.name)}</b>\n"
+                        f"📋 Estado: <code>ORDEN ENVIADA A MERCADO</code>"
+                    )
+                    self._edit_message(message_id, edited_text)
+
+            elif action == "REJECT":
+                self._answer_callback(query_id, "❌ Operación descartada.")
                 edited_text = (
-                    f"{html.escape(message.get('text', ''))}\n\n"
+                    f"{escaped_base}\n\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"✅ <b>ORDEN MULTI-BRÓKER APROBADA Y EJECUTADA</b>\n"
-                    f"👤 Trader: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
-                    f"🌐 Brokers Concurrentes: <b>{html.escape(names_str)}</b>\n"
-                    f"📋 Estado: <code>3 ÓRDENES ENVIADAS SIMULTÁNEAMENTE</code>"
+                    f"❌ <b>OPERACIÓN DESCARTADA</b>\n"
+                    f"👤 Decisión por: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
+                    f"🚫 Estado: <code>NO EJECUTADA EN NINGÚN BROKER</code>"
                 )
                 self._edit_message(message_id, edited_text)
-            else:
-                self.broker_manager.set_active_broker(broker_key)
-                target_broker = self.broker_manager.active_broker
 
-                target_broker.submit_order(
-                    symbol=symbol,
-                    qty=1,
-                    side=side,
-                    order_type="market",
-                    instrument_type=instrument
-                )
-
-                self._answer_callback(query_id, f"✅ ¡Orden enviada exitosamente a {target_broker.name}!")
-
-                edited_text = (
-                    f"{html.escape(message.get('text', ''))}\n\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"✅ <b>ORDEN APROBADA Y EJECUTADA</b>\n"
-                    f"👤 Trader: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
-                    f"🏦 Broker Seleccionado: <b>{html.escape(target_broker.name)}</b>\n"
-                    f"📋 Estado: <code>ORDEN ENVIADA A MERCADO</code>"
-                )
-                self._edit_message(message_id, edited_text)
-
-        elif action == "REJECT":
-            self._answer_callback(query_id, "❌ Operación descartada.")
-            time_now = datetime.now().strftime("%H:%M:%S")
-            edited_text = (
-                f"{html.escape(message.get('text', ''))}\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"❌ <b>OPERACIÓN DESCARTADA</b>\n"
-                f"👤 Decisión por: <b>{html.escape(from_user)}</b> a las <code>{time_now}</code>\n"
-                f"🚫 Estado: <code>NO EJECUTADA EN NINGÚN BROKER</code>"
-            )
-            self._edit_message(message_id, edited_text)
+        except Exception as e:
+            print(f"[TelegramBot] Error en _handle_callback: {e}")
+            traceback.print_exc()
 
     def _answer_callback(self, callback_query_id: str, text: str):
         url = f"https://api.telegram.org/bot{self.token}/answerCallbackQuery"
@@ -227,15 +239,35 @@ class TelegramBotService:
         except Exception:
             pass
 
-    def _edit_message(self, message_id: int, new_text: str):
+    def _edit_message(self, message_id: Optional[int], new_text: str):
+        if not message_id:
+            self._send_fallback_message(new_text)
+            return
+
         url = f"https://api.telegram.org/bot{self.token}/editMessageText"
         try:
-            requests.post(url, json={
+            r = requests.post(url, json={
                 "chat_id": self.chat_id,
                 "message_id": message_id,
                 "text": new_text,
                 "parse_mode": "HTML",
                 "reply_markup": {"inline_keyboard": []}
+            }, timeout=6)
+            if r.status_code != 200:
+                print(f"[TelegramBot] _edit_message rechazado ({r.status_code}): {r.text}. Usando fallback...")
+                self._send_fallback_message(new_text)
+            else:
+                print(f"[TelegramBot] Mensaje #{message_id} editado y confirmado con éxito.")
+        except Exception as e:
+            print(f"[TelegramBot] Excepción en _edit_message: {e}. Usando fallback...")
+            self._send_fallback_message(new_text)
+
+    def _send_fallback_message(self, text: str):
+        try:
+            requests.post(f"https://api.telegram.org/bot{self.token}/sendMessage", json={
+                "chat_id": self.chat_id,
+                "text": text,
+                "parse_mode": "HTML"
             }, timeout=4)
         except Exception:
             pass
