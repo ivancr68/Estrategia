@@ -23,8 +23,8 @@ class BrokerManager:
         import os
         self.brokers: Dict[str, BaseBroker] = {
             "ALPACA": AlpacaBroker(
-                api_key=os.getenv("ALPACA_API_KEY", getattr(config, "ALPACA_API_KEY", "PKJ4MJOYYRRLM33DWVNL2CFUT5")),
-                secret_key=os.getenv("ALPACA_SECRET_KEY", getattr(config, "ALPACA_SECRET_KEY", "3vyygErLE3Q3itKceGobFKa2qCy4sxdvFVEqZtSbyZXS")),
+                api_key=os.getenv("ALPACA_API_KEY", getattr(config, "ALPACA_API_KEY", "PKLYBDE6TEEGYHRGLPFQ2ULQTT")),
+                secret_key=os.getenv("ALPACA_SECRET_KEY", getattr(config, "ALPACA_SECRET_KEY", "C5kWhJZFZPKxtuJtRnxF8XQq9SPurxMXNh49epVYx6hV")),
                 paper_mode=str(os.getenv("ALPACA_PAPER_MODE", getattr(config, "ALPACA_PAPER_MODE", True))).lower() == "true"
             ),
             "IBKR": InteractiveBrokers(
