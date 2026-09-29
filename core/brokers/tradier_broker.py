@@ -94,6 +94,31 @@ class TradierBroker(BaseBroker):
         }
 
     def get_positions(self) -> List[Dict]:
+        is_custom_token = bool(self.access_token and self.access_token not in ["DEMO_TRADIER_TOKEN", "DEMO_TOKEN_123", "TU_TRADIER_TOKEN"])
+        if is_custom_token:
+            try:
+                r = requests.get(f"{self.base_url}/accounts/{self.account_id}/positions", headers=self.headers, timeout=5)
+                if r.status_code == 200:
+                    data = r.json().get("positions")
+                    if data and data != "null":
+                        pos = data.get("position", [])
+                        return [pos] if isinstance(pos, dict) else pos
+            except Exception:
+                pass
+        return []
+
+    def get_orders(self) -> List[Dict]:
+        is_custom_token = bool(self.access_token and self.access_token not in ["DEMO_TRADIER_TOKEN", "DEMO_TOKEN_123", "TU_TRADIER_TOKEN"])
+        if is_custom_token:
+            try:
+                r = requests.get(f"{self.base_url}/accounts/{self.account_id}/orders", headers=self.headers, timeout=5)
+                if r.status_code == 200:
+                    data = r.json().get("orders")
+                    if data and data != "null":
+                        ords = data.get("order", [])
+                        return [ords] if isinstance(ords, dict) else ords
+            except Exception:
+                pass
         return []
 
     def submit_order(
@@ -106,10 +131,62 @@ class TradierBroker(BaseBroker):
         instrument_type: str = "equity",
         option_symbol: Optional[str] = None
     ) -> Dict:
+        """
+        Envía una orden al endpoint /v1/accounts/{account_id}/orders de Tradier (Sandbox o Live).
+        """
+        is_custom_token = bool(self.access_token and self.access_token not in ["DEMO_TRADIER_TOKEN", "DEMO_TOKEN_123", "TU_TRADIER_TOKEN"])
+
+        if is_custom_token:
+            url = f"{self.base_url}/accounts/{self.account_id}/orders"
+            payload = {
+                "quantity": str(qty),
+                "type": order_type.lower(),
+                "duration": "day"
+            }
+            if instrument_type == "option" and option_symbol:
+                payload["class"] = "option"
+                payload["symbol"] = symbol
+                payload["option_symbol"] = option_symbol
+                payload["side"] = "buy_to_open" if "buy" in side.lower() else "sell_to_close"
+            else:
+                payload["class"] = "equity"
+                payload["symbol"] = symbol
+                payload["side"] = "buy" if "buy" in side.lower() else "sell"
+
+            if order_type.lower() == "limit" and limit_price:
+                payload["price"] = str(limit_price)
+
+            try:
+                r = requests.post(url, data=payload, headers=self.headers, timeout=6)
+                if r.status_code in [200, 201]:
+                    order_data = r.json().get("order", {})
+                    return {
+                        "status": "SUCCESS",
+                        "order": order_data,
+                        "broker": self.name,
+                        "account_id": self.account_id,
+                        "message": f"Orden enviada con éxito a Tradier ({self.account_id})"
+                    }
+                else:
+                    return {
+                        "status": "FAILED",
+                        "error": r.text,
+                        "broker": self.name,
+                        "account_id": self.account_id
+                    }
+            except Exception as e:
+                return {
+                    "status": "ERROR",
+                    "error": str(e),
+                    "broker": self.name,
+                    "account_id": self.account_id
+                }
+
+        # Modo simulado local si no hay token configurado
         return {
             "status": "SIMULATED_SUCCESS",
             "broker": self.name,
-            "message": f"Orden de opción/acción ejecutada mediante API REST Tradier",
+            "message": f"Orden de opción/acción ejecutada localmente en {self.name}",
             "order": {
                 "symbol": symbol,
                 "qty": qty,

@@ -118,6 +118,16 @@ class InteractiveBrokers(BaseBroker):
         }
 
     def get_positions(self) -> List[Dict]:
+        if self.gateway_url and "http" in self.gateway_url:
+            try:
+                base = self.gateway_url.rstrip("/").replace("/v1/api", "")
+                r = requests.get(f"{base}/v1/api/portfolio/{self.account_id}/positions/0", verify=False, timeout=3)
+                if r.status_code == 200:
+                    data = r.json()
+                    if isinstance(data, list):
+                        return data
+            except Exception:
+                pass
         return []
 
     def submit_order(
@@ -130,10 +140,64 @@ class InteractiveBrokers(BaseBroker):
         instrument_type: str = "equity",
         option_symbol: Optional[str] = None
     ) -> Dict:
+        """
+        Envía una orden al endpoint /v1/api/iserver/account/{account_id}/orders de IB Gateway.
+        """
+        if self.gateway_url and "http" in self.gateway_url:
+            base = self.gateway_url.rstrip("/").replace("/v1/api", "")
+            try:
+                # 1. Buscar contract ID (conid) del símbolo
+                conid = None
+                r_sec = requests.get(f"{base}/v1/api/iserver/secdef/search?symbol={symbol}", verify=False, timeout=4)
+                if r_sec.status_code == 200:
+                    secs = r_sec.json()
+                    if isinstance(secs, list) and len(secs) > 0:
+                        conid = secs[0].get("conid")
+
+                if conid:
+                    order_payload = {
+                        "orders": [
+                            {
+                                "acctId": self.account_id,
+                                "conid": conid,
+                                "secType": "OPT" if instrument_type == "option" else "STK",
+                                "orderType": "MKT" if order_type.lower() == "market" else "LMT",
+                                "side": side.upper(),
+                                "quantity": qty,
+                                "tif": "DAY"
+                            }
+                        ]
+                    }
+                    if order_type.lower() == "limit" and limit_price:
+                        order_payload["orders"][0]["price"] = limit_price
+
+                    r_ord = requests.post(
+                        f"{base}/v1/api/iserver/account/{self.account_id}/orders",
+                        json=order_payload,
+                        verify=False,
+                        timeout=6
+                    )
+                    if r_ord.status_code == 200:
+                        res = r_ord.json()
+                        # Si IBKR requiere confirmación intermedia (replyId)
+                        if isinstance(res, list) and len(res) > 0 and "id" in res[0]:
+                            reply_id = res[0]["id"]
+                            requests.post(f"{base}/v1/api/iserver/reply/{reply_id}", json={"confirmed": True}, verify=False, timeout=4)
+
+                        return {
+                            "status": "SUCCESS",
+                            "broker": self.name,
+                            "account_id": self.account_id,
+                            "order": res,
+                            "message": f"Orden enviada a Interactive Brokers vía Gateway ({self.account_id})"
+                        }
+            except Exception as e:
+                pass
+
         return {
             "status": "SIMULATED_SUCCESS",
             "broker": self.name,
-            "message": f"Orden enrutada a {self.name} (Algoritmo de SmartRouting IBKR)",
+            "message": f"Orden enrutada a {self.name} (Modo Simulado / Fallback)",
             "order": {
                 "symbol": symbol,
                 "qty": qty,
