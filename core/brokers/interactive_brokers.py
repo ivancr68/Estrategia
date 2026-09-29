@@ -32,19 +32,18 @@ class InteractiveBrokers(BaseBroker):
         except Exception:
             return False
 
-    def is_connected(self) -> bool:
-        import socket
+    def _get_hosts_and_ports(self):
         import os
-
-        # Determinar hosts y puertos a escanear (soporta localhost y contenedor ib-gateway en Easypanel)
         host_env = os.getenv("IBKR_HOST", "").strip()
         custom_port_env = os.getenv("IBKR_PORT", "").strip()
 
-        target_hosts = ["127.0.0.1"]
+        target_hosts = []
         if host_env:
-            target_hosts.insert(0, host_env)
+            target_hosts.append(host_env)
+        # En Easypanel el contenedor vecino se llama ib-gateway o ib
+        target_hosts.extend(["ib-gateway", "ib", "127.0.0.1", "localhost"])
 
-        ports_to_try = [4004, 4002, 7497, 7496, 4003, 4001]
+        ports_to_try = [4002, 4004, 7497, 7496, 4001, 4003]
         if custom_port_env and custom_port_env.isdigit():
             ports_to_try.insert(0, int(custom_port_env))
 
@@ -60,6 +59,36 @@ class InteractiveBrokers(BaseBroker):
                 elif clean_url not in target_hosts:
                     target_hosts.insert(0, clean_url)
 
+        return target_hosts, ports_to_try
+
+    def _get_ib_connection(self):
+        try:
+            import nest_asyncio
+            nest_asyncio.apply()
+        except Exception:
+            pass
+
+        try:
+            from ib_insync import IB
+            target_hosts, ports = self._get_hosts_and_ports()
+            for h in target_hosts:
+                for p in ports:
+                    try:
+                        ib = IB()
+                        ib.connect(h, p, clientId=21, timeout=1.5)
+                        if ib.isConnected():
+                            return ib, h, p
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return None, None, None
+
+    def is_connected(self) -> bool:
+        import socket
+
+        target_hosts, ports_to_try = self._get_hosts_and_ports()
+
         # 1. Probar Socket TWS / IB Gateway en los hosts y puertos objetivo
         for h in target_hosts:
             for p in ports_to_try:
@@ -67,7 +96,7 @@ class InteractiveBrokers(BaseBroker):
                     s = socket.create_connection((h, p), timeout=0.6)
                     s.close()
                     self.connected = True
-                    host_label = "Local" if h in ["127.0.0.1", "localhost"] else f"Nube ({h})"
+                    host_label = "Local" if h in ["127.0.0.1", "localhost"] else f"Easypanel ({h})"
                     self.status_detail = f"En Línea (IB Gateway {host_label} :{p}) ✅"
                     return True
                 except Exception:
@@ -96,7 +125,7 @@ class InteractiveBrokers(BaseBroker):
 
     def get_account_summary(self) -> Dict:
         connected = self.is_connected()
-        status_text = getattr(self, "status_detail", "En Línea (TWS Activo) ✅" if connected else "Modo Simulado 🛡️")
+        status_text = getattr(self, "status_detail", "En Línea (IB Gateway) ✅" if connected else "Modo Simulado 🛡️")
 
         import os
         default_equity = float(os.getenv("IBKR_EQUITY", "1000000.0" if connected else "25000.0"))
@@ -118,6 +147,27 @@ class InteractiveBrokers(BaseBroker):
         }
 
     def get_positions(self) -> List[Dict]:
+        # 1. Intentar vía ib_insync socket
+        ib, _, _ = self._get_ib_connection()
+        if ib:
+            try:
+                positions = []
+                for p in ib.positions():
+                    positions.append({
+                        "symbol": p.contract.symbol,
+                        "quantity": p.position,
+                        "cost_basis": p.avgCost,
+                        "account": p.account
+                    })
+                ib.disconnect()
+                return positions
+            except Exception:
+                try:
+                    ib.disconnect()
+                except Exception:
+                    pass
+
+        # 2. Intentar vía Client Portal REST
         if self.gateway_url and "http" in self.gateway_url:
             try:
                 base = self.gateway_url.rstrip("/").replace("/v1/api", "")
@@ -141,8 +191,40 @@ class InteractiveBrokers(BaseBroker):
         option_symbol: Optional[str] = None
     ) -> Dict:
         """
-        Envía una orden al endpoint /v1/api/iserver/account/{account_id}/orders de IB Gateway.
+        Envía una orden a Interactive Brokers vía Socket (ib_insync) o REST Client Portal Gateway.
         """
+        # 1. Intentar vía Socket TWS / IB Gateway (ib-gateway:4002 / 4004 / 7497)
+        ib, host, port = self._get_ib_connection()
+        if ib:
+            try:
+                from ib_insync import Stock, MarketOrder, LimitOrder
+                contract = Stock(symbol.upper(), "SMART", "USD")
+                ib.qualifyContracts(contract)
+                if order_type.lower() == "limit" and limit_price:
+                    order = LimitOrder(side.upper(), qty, limit_price)
+                else:
+                    order = MarketOrder(side.upper(), qty)
+
+                trade = ib.placeOrder(contract, order)
+                ib.sleep(0.5)
+                order_id = trade.order.orderId if trade.order else None
+                status = trade.orderStatus.status if trade.orderStatus else "Submitted"
+                ib.disconnect()
+                return {
+                    "status": "SUCCESS",
+                    "broker": self.name,
+                    "account_id": self.account_id,
+                    "order_id": order_id,
+                    "order_status": status,
+                    "message": f"Orden enviada a Interactive Brokers vía Socket Gateway ({host}:{port})"
+                }
+            except Exception as e:
+                try:
+                    ib.disconnect()
+                except Exception:
+                    pass
+
+        # 2. Intentar vía Client Portal REST API
         if self.gateway_url and "http" in self.gateway_url:
             base = self.gateway_url.rstrip("/").replace("/v1/api", "")
             try:
