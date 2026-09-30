@@ -196,6 +196,9 @@ class BrokerManager:
                 "connected": acc["connected"],
                 "status": acc["status"],
                 "equity": acc["equity"],
+                "cash": acc.get("cash", acc["equity"]),
+                "invested": acc.get("invested", 0.0),
+                "open_pl": acc.get("open_pl", 0.0),
                 "buying_power": acc["buying_power"],
                 "mode": acc["mode"],
                 "account_number": acc.get("account_number", "")

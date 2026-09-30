@@ -831,8 +831,16 @@
                             <span class="metric-value" style="color: {{ '#00d084' if brokers_map['ALPACA'].connected else '#ffa502' }}; font-weight: 700;">{{ brokers_map['ALPACA'].status }}</span>
                         </div>
                         <div class="metric-row">
-                            <span class="metric-label">Balance Cuenta:</span>
+                            <span class="metric-label">Patrimonio Neto (Equity):</span>
                             <span class="metric-value">${{ "{:,.2f}".format(brokers_map['ALPACA'].equity) }}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Efectivo Libre (Cash):</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['ALPACA'].cash) }}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Capital en Posiciones:</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['ALPACA'].invested) }} <small style="color: {{ '#00d084' if brokers_map['ALPACA'].open_pl >= 0 else '#ff4757' }};">({{ '+' if brokers_map['ALPACA'].open_pl >= 0 else '' }}${{ "{:,.2f}".format(brokers_map['ALPACA'].open_pl) }})</small></span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Poder de Compra:</span>
@@ -895,8 +903,16 @@
                             <span class="metric-value" style="color: {{ '#00d084' if brokers_map['IBKR'].connected else '#ffa502' }}; font-weight: 700;">{{ brokers_map['IBKR'].status }}</span>
                         </div>
                         <div class="metric-row">
-                            <span class="metric-label">Balance Cuenta Paper:</span>
+                            <span class="metric-label">Patrimonio Neto (Equity):</span>
                             <span class="metric-value">${{ "{:,.2f}".format(brokers_map['IBKR'].equity) }}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Efectivo Libre (Cash):</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['IBKR'].cash) }}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Capital en Posiciones:</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['IBKR'].invested) }} <small style="color: {{ '#00d084' if brokers_map['IBKR'].open_pl >= 0 else '#ff4757' }};">({{ '+' if brokers_map['IBKR'].open_pl >= 0 else '' }}${{ "{:,.2f}".format(brokers_map['IBKR'].open_pl) }})</small></span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Poder de Compra (Margen):</span>
@@ -957,8 +973,16 @@
                             <span class="metric-value" style="color: {{ '#00d084' if brokers_map['TRADIER'].connected else '#ffa502' }}; font-weight: 700;">{{ brokers_map['TRADIER'].status }}</span>
                         </div>
                         <div class="metric-row">
-                            <span class="metric-label">Balance Cuenta Demo:</span>
+                            <span class="metric-label">Patrimonio Neto (Equity):</span>
                             <span class="metric-value">${{ "{:,.2f}".format(brokers_map['TRADIER'].equity) }}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Efectivo Libre (Cash):</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['TRADIER'].cash) }}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Capital en Posiciones:</span>
+                            <span class="metric-value">${{ "{:,.2f}".format(brokers_map['TRADIER'].invested) }} <small style="color: {{ '#00d084' if brokers_map['TRADIER'].open_pl >= 0 else '#ff4757' }};">({{ '+' if brokers_map['TRADIER'].open_pl >= 0 else '' }}${{ "{:,.2f}".format(brokers_map['TRADIER'].open_pl) }})</small></span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Poder de Compra:</span>

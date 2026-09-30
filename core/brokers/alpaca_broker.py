@@ -48,14 +48,23 @@ class AlpacaBroker(BaseBroker):
                 r = requests.get(f"{self.base_url}/v2/account", headers=self.headers, timeout=5)
                 if r.status_code == 200:
                     data = r.json()
+                    equity = float(data.get("equity", 25000.0))
+                    cash = float(data.get("cash", 25000.0))
+                    last_equity = float(data.get("last_equity", equity))
+                    long_mv = abs(float(data.get("long_market_value", 0.0)))
+                    short_mv = abs(float(data.get("short_market_value", 0.0)))
+                    invested = round(long_mv + short_mv, 2)
+                    open_pl = round(equity - last_equity, 2)
                     return {
                         "broker": self.name,
                         "status": data.get("status", "ACTIVE"),
                         "connected": True,
                         "account_number": data.get("account_number", "ALPACAPAPER1"),
                         "currency": data.get("currency", "USD"),
-                        "equity": float(data.get("equity", 25000.0)),
-                        "cash": float(data.get("cash", 25000.0)),
+                        "equity": equity,
+                        "cash": cash,
+                        "invested": invested,
+                        "open_pl": open_pl,
                         "buying_power": float(data.get("buying_power", 50000.0)),
                         "daytrade_count": int(data.get("daytrade_count", 0)),
                         "pdt_status": data.get("pattern_day_trader", False),
@@ -73,6 +82,8 @@ class AlpacaBroker(BaseBroker):
             "currency": "USD",
             "equity": 25000.0,
             "cash": 25000.0,
+            "invested": 0.0,
+            "open_pl": 0.0,
             "buying_power": 50000.0,
             "daytrade_count": 0,
             "pdt_status": False,
